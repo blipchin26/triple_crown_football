@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../lib/supabase'
@@ -10,7 +10,7 @@ import s from './styles'
 
 // Slim bar at the top of every signed-in page: brand on the left, your name/avatar menu on the right.
 // Hidden while signed out and on the login screens.
-export default function AppHeader() {
+function HeaderInner() {
   const pathname = usePathname()
   const [signedIn, setSignedIn] = useState(false)
 
@@ -34,5 +34,14 @@ export default function AppHeader() {
         <UserMenu />
       </div>
     </header>
+  )
+}
+
+// usePathname() on dynamic routes (like /join/[code]) must sit inside a Suspense boundary to build.
+export default function AppHeader() {
+  return (
+    <Suspense fallback={null}>
+      <HeaderInner />
+    </Suspense>
   )
 }
