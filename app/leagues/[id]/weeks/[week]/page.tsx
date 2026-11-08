@@ -197,8 +197,10 @@ function WeekView() {
                                 <span className={s.sideTeam}>{team}</span>
                                 <span className={s.sideMeta}>
                                   {p != null
-                                    ? `${Math.round(p * 100)}% · +${upsetPoints(p).toFixed(1)} pts`
-                                    : 'Odds pending'}
+                                  ? `${Math.round(p * 100)}% · +${Math.round(
+                                      10 * Math.pow(Math.max(p > 1 ? p / 100 : p, 0.01), -0.9)
+                                    )} pts`
+                                  : 'Odds pending'}
                                 </span>
                               </button>
                             )

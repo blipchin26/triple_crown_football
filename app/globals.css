@@ -1013,3 +1013,26 @@ a.tc-row:hover {
     color: #b91c1c;
     font-weight: 700;
 }
+
+/* ADD to the bottom of app/globals.css */
+.tc-gmFoot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.tc-pts {
+    font-size: 13px;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: #eef1ee;
+    color: #6b7c71;
+    font-variant-numeric: tabular-nums;
+}
+
+.tc-ptsPos {
+    background: #16a34a;
+    color: #fff;
+}

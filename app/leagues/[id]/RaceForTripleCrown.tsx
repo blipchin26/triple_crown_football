@@ -15,7 +15,7 @@ type WeekRow = {
 type Game = {
   game_id: number; week: number; kickoff_at: string
   home_team: string; away_team: string; home_score: number | null; away_score: number | null
-  win_side: 'home' | 'away' | null; pick_side: 'home' | 'away' | null; locked: boolean
+  win_side: 'home' | 'away' | null; pick_side: 'home' | 'away' | null; locked: boolean; points: number
 }
 
 const CROWNS: { key: 'correct' | 'weekly_wins' | 'upset_points'; name: string; unit: string }[] = [
@@ -115,8 +115,14 @@ export default function RaceForTripleCrown({
                     : final ? 'No pick made' : g.locked ? 'No pick made' : 'No pick yet'}
                 </div>
               )}
-              {right && <div className="tc-gmNote tc-gmNoteRight">Correct</div>}
-              {wrong && <div className="tc-gmNote tc-gmNoteWrong">Missed</div>}
+              {g.pick_side && final && (
+                <div className="tc-gmFoot">
+                  <span className={`tc-gmNote ${right ? 'tc-gmNoteRight' : 'tc-gmNoteWrong'}`}>
+                    {right ? 'Correct' : 'Missed'}
+                  </span>
+                  <span className={`tc-pts ${g.points > 0 ? 'tc-ptsPos' : ''}`}>+{g.points}</span>
+                </div>
+              )}
             </div>
           )
         })}
