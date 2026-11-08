@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../../../lib/supabase'
@@ -39,6 +39,9 @@ function WeekView() {
   const [notMember, setNotMember] = useState(false)
   const [error, setError] = useState('')
   const [now, setNow] = useState(() => Date.now())
+  // per-game save feedback: a quick spinner, then a check
+  const [saveState, setSaveState] = useState<Record<number, 'saving' | 'saved'>>({})
+  const saveTimers = useRef<Record<number, number>>({})
 
   // keep lock status fresh without a page refresh
   useEffect(() => {
@@ -108,15 +111,34 @@ function WeekView() {
     setTimeout(() => router.push(`/leagues/${next}/weeks/${week}`), 500)
   }
 
+  function clearSave(gameId: number) {
+    setSaveState((prev) => {
+      const next = { ...prev }
+      delete next[gameId]
+      return next
+    })
+  }
+
   async function pick(g: Game, side: Side) {
     setError('')
+    window.clearTimeout(saveTimers.current[g.id])
+    setSaveState((prev) => ({ ...prev, [g.id]: 'saving' }))
+    const started = Date.now()
     const { error } = await supabase.rpc('save_pick', {
       p_game: g.id,
       p_league: shared ? null : id,
       p_picked: side,
     })
-    if (error) setError(error.message)
-    else setPicks({ ...picks, [g.id]: side })
+    if (error) {
+      setError(error.message)
+      clearSave(g.id)
+      return
+    }
+    setPicks((prev) => ({ ...prev, [g.id]: side }))
+    // keep the spinner on screen for a moment so it's actually noticeable
+    await new Promise((r) => setTimeout(r, Math.max(0, 400 - (Date.now() - started))))
+    setSaveState((prev) => ({ ...prev, [g.id]: 'saved' }))
+    saveTimers.current[g.id] = window.setTimeout(() => clearSave(g.id), 2000)
   }
 
   const currentLeague = leagues.find((l) => l.id === id)
@@ -180,6 +202,12 @@ function WeekView() {
                       <div key={g.id} className={s.game}>
                         <div className={s.gameTime}>
                           <span>{fmt(g.kickoff_at)}</span>
+                          {saveState[g.id] === 'saving' && (
+                            <span className={s.saveTag} role="status"><span className={s.saveSpin} /> Saving</span>
+                          )}
+                          {saveState[g.id] === 'saved' && (
+                            <span className={s.saveTag} role="status"><span className={s.saveCheck}>✓</span> Saved</span>
+                          )}
                           {locked && <span className={s.lockTag}>Locked</span>}
                         </div>
                         <div className={s.sides}>
