@@ -81,11 +81,17 @@ export default function RaceForTripleCrown({
   weekRows.forEach((r) => byWeek.set(r.week, [...(byWeek.get(r.week) ?? []), r]))
   const gamesByWeek = new Map<number, Game[]>()
   games.forEach((g) => gamesByWeek.set(g.week, [...(gamesByWeek.get(g.week) ?? []), g]))
-  const weeks = [...byWeek.keys()].sort((a, b) => a - b)
-  const isDone = (w: number) => byWeek.get(w)![0].games_final === byWeek.get(w)![0].games_total
+  // Weeks come from the schedule itself (not from results), so future weeks show up before anyone has picked.
+  // A game is final once it has a winner or both scores (a tie has scores but no winner side).
+  const weeks = [...gamesByWeek.keys()].sort((a, b) => a - b)
+  const isFinal = (g: Game) => g.win_side !== null || (g.home_score !== null && g.away_score !== null)
+  const totalOf = (w: number) => gamesByWeek.get(w)?.length ?? 0
+  const finalOf = (w: number) => (gamesByWeek.get(w) ?? []).filter(isFinal).length
+  const isDone = (w: number) => totalOf(w) > 0 && finalOf(w) === totalOf(w)
   const currentWeek = weeks.find((w) => !isDone(w)) ?? weeks[weeks.length - 1]
-  const pastWeeks = weeks.filter((w) => w !== currentWeek && isDone(w)).sort((a, b) => b - a)
-  const cur = currentWeek !== undefined ? byWeek.get(currentWeek)! : []
+  const futureWeeks = weeks.filter((w) => currentWeek !== undefined && w > currentWeek)
+  const pastWeeks = weeks.filter((w) => currentWeek !== undefined && w < currentWeek).sort((a, b) => b - a)
+  const cur = currentWeek !== undefined ? byWeek.get(currentWeek) ?? [] : []
   const curWinners = winnersOf(cur)
 
   function PicksPanel({ week }: { week: number }) {
@@ -198,7 +204,7 @@ export default function RaceForTripleCrown({
           <div className="tc-pw">
             <div className="tc-pwHead tc-pwHeadStatic">
               <div>
-                <div className="tc-pwSub">{cur[0].games_final} of {cur[0].games_total} games final</div>
+                <div className="tc-pwSub">{finalOf(currentWeek)} of {totalOf(currentWeek)} games final</div>
               </div>
               <div className="tc-pwBtns">
                 {weekHref && <a className="tc-pwBtn tc-pwBtnPrimary" href={weekHref(currentWeek)}>Make picks</a>}
@@ -207,7 +213,7 @@ export default function RaceForTripleCrown({
                 </button>
               </div>
             </div>
-            {cur[0].games_final === 0 ? (
+            {finalOf(currentWeek) === 0 ? (
               <div className="tc-pwRow"><span>No results yet. Check back after the games.</span></div>
             ) : (
               cur.map((r) => (
@@ -224,11 +230,37 @@ export default function RaceForTripleCrown({
         </>
       )}
 
+      {!viewing && futureWeeks.length > 0 && (
+        <details className="tc-racePast">
+          <summary>Future weeks ({futureWeeks.length})</summary>
+          {futureWeeks.map((w) => {
+            const picked = (gamesByWeek.get(w) ?? []).filter((g) => g.pick_side !== null).length
+            return (
+              <div key={w} className="tc-pw tc-pwInner">
+                <div className="tc-pwHead tc-pwHeadStatic">
+                  <div>
+                    <div className="tc-pwTitle">Week {w}</div>
+                    <div className="tc-pwSub">{totalOf(w)} games · {picked} of {totalOf(w)} picked</div>
+                  </div>
+                  <div className="tc-pwBtns">
+                    {weekHref && <a className="tc-pwBtn tc-pwBtnPrimary" href={weekHref(w)}>Make picks</a>}
+                    <button className="tc-pwBtn" onClick={() => setOpenPicks(toggled(openPicks, w))}>
+                      {openPicks.has(w) ? 'Hide picks' : 'View my picks'}
+                    </button>
+                  </div>
+                </div>
+                {openPicks.has(w) && <PicksPanel week={w} />}
+              </div>
+            )
+          })}
+        </details>
+      )}
+
       {pastWeeks.length > 0 && (
         <details className="tc-racePast">
           <summary>Past weeks ({pastWeeks.length})</summary>
           {pastWeeks.map((w) => {
-            const wr = byWeek.get(w)!
+            const wr = byWeek.get(w) ?? []
             const win = winnersOf(wr)
             const resultsOpen = openResults.has(w)
             return (
@@ -249,7 +281,7 @@ export default function RaceForTripleCrown({
                   <div>
                     <div className="tc-pwTitle">Week {w}</div>
                     <div className="tc-pwSub">
-                      {win.length ? `Winner: ${win.map((x) => x.username).join(' & ')}` : 'No winner'} · {wr[0].games_total} games
+                      {win.length ? `Winner: ${win.map((x) => x.username).join(' & ')}` : 'No winner'} · {totalOf(w)} games
                     </div>
                   </div>
                   <div className="tc-pwBtns">
