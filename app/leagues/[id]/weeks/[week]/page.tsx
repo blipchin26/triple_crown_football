@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { supabase } from '../../../../../lib/supabase'
 import { useRequireUser } from '../../../../../lib/useRequireUser'
 import { upsetPoints } from '../../../../../lib/scoring'
-import Tabs from '../../../../Tabs'
 import s from '../../../../styles'
 
 type Side = 'away' | 'home'
@@ -126,7 +125,6 @@ function WeekView() {
   return (
     <main className={s.page}>
       <div className={`${s.card} ${s.cardWide}`}>
-        <Tabs active="leagues" />
         <div className={s.left}><Link href={`/leagues/${id}`} className={s.back}>← Back to league</Link></div>
 
         {!initialized ? (

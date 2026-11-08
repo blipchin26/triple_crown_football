@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
 import { useRequireUser } from '../../lib/useRequireUser'
 import Crown from '../Crown'
-import Tabs from '../Tabs'
 import s from '../styles'
 
 export default function SettingsPage() {
@@ -36,10 +36,10 @@ export default function SettingsPage() {
   return (
     <main className={s.page}>
       <div className={`${s.card} ${s.cardWide}`}>
-        <Tabs active="settings" />
+        <div className={s.left}><Link href="/leagues" className={s.back}>← Leagues</Link></div>
         <div className={s.brand}>
           <Crown className={s.crown} />
-          <div className={s.brandName}>Settings</div>
+          <div className={s.brandName}>Account settings</div>
         </div>
 
         {error && <div className={s.error}>{error}</div>}

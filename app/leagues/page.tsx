@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
 import { useRequireUser } from '../../lib/useRequireUser'
 import Crown from '../Crown'
-import Tabs from '../Tabs'
 import s from '../styles'
 
 type MyLeague = { id: string; name: string; role: string }
@@ -65,7 +64,6 @@ export default function LeaguesPage() {
   return (
     <main className={s.page}>
       <div className={`${s.card} ${s.cardWide}`}>
-        <Tabs active="leagues" />
         <div className={s.brand}>
           <Crown className={s.crown} />
           <div className={s.brandName}>Your leagues</div>
