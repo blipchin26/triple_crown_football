@@ -202,7 +202,11 @@ export default function RaceForTripleCrown({
                   <span className="tc-gmName">
                     {side === 'home' ? g.home_team : g.away_team}
                     {g.win_side === side && <Crown className="tc-gameCrown" />}
-                    {g.pick_side === side && <span className="tc-gmTag">Your pick</span>}
+                    {g.pick_side === side && (
+                      <span className="tc-gmTag">
+                        {viewing && me && viewUserId !== me ? 'Their pick' : 'Your pick'}
+                      </span>
+                    )}
                   </span>
                   <span className="tc-gmScore">{side === 'home' ? g.home_score : g.away_score}</span>
                 </div>

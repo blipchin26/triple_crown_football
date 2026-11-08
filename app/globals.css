@@ -1628,3 +1628,44 @@ a.tc-row:hover {
         font-size: 19px;
     }
 }
+
+/* ADD to the bottom of app/globals.css (needs the earlier live-score styles too: .tc-gmLive and .tc-liveDot) */
+.tc-wkScore {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: #f6f8f5;
+    border: 1.5px solid #e4eae2;
+    font-size: 14px;
+}
+
+.tc-wkTeam {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.tc-wkTeam:last-child {
+    text-align: right;
+}
+
+.tc-wkTeam b {
+    font-variant-numeric: tabular-nums;
+    margin: 0 2px;
+}
+
+.tc-wkWin, .tc-wkWin b {
+    font-weight: 900;
+    color: #15803d;
+}
+
+.tc-wkMid {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 800;
+    color: #6b7c71;
+    text-align: center;
+}
