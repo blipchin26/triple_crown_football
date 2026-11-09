@@ -11,17 +11,22 @@ export default function UserMenu() {
   const router = useRouter()
   const [name, setName] = useState<string | null>(null)
   const [avatar, setAvatar] = useState<Record<string, unknown> | null>(null)
+  const [team, setTeam] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
+    const load = () => supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       const { data } = await supabase
-        .from('profiles').select('username, avatar_config').eq('id', user.id).single()
+        .from('profiles').select('username, avatar_config, favorite_team').eq('id', user.id).single()
       setName(data?.username ?? user.email ?? 'Player')
       setAvatar((data?.avatar_config as Record<string, unknown>) ?? null)
+      setTeam(data?.favorite_team ?? null)
     })
+    load()
+    window.addEventListener('tc-prefs-changed', load)   // settings page fires this after saving
+    return () => window.removeEventListener('tc-prefs-changed', load)
   }, [])
 
   // close on outside click or Escape
@@ -49,8 +54,9 @@ export default function UserMenu() {
   return (
     <div className={s.userWrap} ref={ref}>
       <button className={s.userBtn} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open}>
-        <Avatar config={avatar} />
+        <Avatar config={avatar} name={name} />
         <span className={s.userName}>{name}</span>
+        {team && <span className={s.teamTag}>{team}</span>}
         <span className={s.caret}>▾</span>
       </button>
       {open && (
@@ -58,7 +64,7 @@ export default function UserMenu() {
           <div className={s.menuHead}>Signed in as <strong>{name}</strong></div>
           <div className={s.menuSep} />
           <Link href="/settings" className={s.menuItem} role="menuitem" onClick={() => setOpen(false)}>
-            Account settings
+            Profile &amp; settings
           </Link>
           <button className={`${s.menuItem} ${s.menuDanger}`} role="menuitem" onClick={logout}>Log out</button>
         </div>
