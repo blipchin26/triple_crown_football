@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import Crown from '../../Crown'
+import { CompareHeaderButton, ComparePicker, ComparePicks, CrowdCount, useCompare, useCrowd } from './PickCrowd'
 
 type Row = {
   user_id: string; username: string
@@ -89,6 +90,11 @@ export default function RaceForTripleCrown({
   const [me, setMe] = useState<string | null>(null)
   const [openCrown, setOpenCrown] = useState<CrownKey | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const crowd = useCrowd(leagueId)
+  const cmp = useCompare(leagueId)
+  const { prune } = cmp
+  // comparing ends when you hide the picks panel
+  useEffect(() => { prune(openPicks) }, [openPicks, prune])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setMe(user?.id ?? null))
@@ -157,6 +163,7 @@ export default function RaceForTripleCrown({
   const overallPlace = placeBy(rows, (r) => r.user_id, (r) => rankSum(r.user_id), true)
   const top3 = overall.slice(0, 3)
   const myRow = me ? rows.find((r) => r.user_id === me) : undefined
+  const others = rows.filter((r) => r.user_id !== me).map((r) => ({ user_id: r.user_id, username: r.username }))
   const youOutsideTop3 = myRow && !top3.some((r) => r.user_id === myRow.user_id) ? myRow : null
   const openDef = CROWNS.find((c) => c.key === openCrown)
   const anyStandings = leaders.some((l) => l.top > 0)
@@ -186,6 +193,12 @@ export default function RaceForTripleCrown({
 
   function PicksPanel({ week }: { week: number }) {
     const list = gamesByWeek.get(week) ?? []
+    if (!viewing && cmp.isOpen(week)) {
+      return (
+        <ComparePicks week={week} games={list} cmp={cmp}
+          members={(rows ?? []).filter((r) => r.user_id !== me).map((r) => ({ user_id: r.user_id, username: r.username }))} />
+      )
+    }
     return (
       <div className="tc-gmList">
         {list.map((g) => {
@@ -207,7 +220,8 @@ export default function RaceForTripleCrown({
                         {viewing && me && viewUserId !== me ? 'Their pick' : 'Your pick'}
                       </span>
                     )}
-                  </span>
+                     {g.locked && <CrowdCount names={crowd.get(`${g.game_id}:${side}`)} />}
+                  </span>                      
                   <span className="tc-gmScore">{side === 'home' ? g.home_score : g.away_score}</span>
                 </div>
               ))}
@@ -238,6 +252,7 @@ export default function RaceForTripleCrown({
 
   return (
     <>
+    <ComparePicker cmp={cmp} members={others} />
       {viewing ? (
         <>
           <div className="tc-sectionTitle">Triple Crown standing</div>
@@ -388,6 +403,7 @@ export default function RaceForTripleCrown({
               </div>
               <div className="tc-pwBtns">
                 {weekHref && <a className="tc-pwBtn tc-pwBtnPrimary" href={weekHref(currentWeek)}>Make picks</a>}
+                <CompareHeaderButton week={currentWeek} cmp={cmp} show={!viewing && openPicks.has(currentWeek)} />
                 <button className="tc-pwBtn" onClick={() => setOpenPicks(toggled(openPicks, currentWeek))}>
                   {openPicks.has(currentWeek) ? 'Hide picks' : viewing ? 'View picks' : 'View my picks'}
                 </button>
@@ -431,6 +447,7 @@ export default function RaceForTripleCrown({
                   </div>
                   <div className="tc-pwBtns">
                     {weekHref && <a className="tc-pwBtn tc-pwBtnPrimary" href={weekHref(w)}>Make picks</a>}
+                    <CompareHeaderButton week={w} cmp={cmp} show={!viewing && openPicks.has(w)} />
                     <button className="tc-pwBtn" onClick={() => setOpenPicks(toggled(openPicks, w))}>
                       {openPicks.has(w) ? 'Hide picks' : 'View my picks'}
                     </button>
@@ -472,6 +489,7 @@ export default function RaceForTripleCrown({
                     </div>
                   </div>
                   <div className="tc-pwBtns">
+                    <CompareHeaderButton week={w} cmp={cmp} show={!viewing && openPicks.has(w)} />
                     <button
                       className="tc-pwBtn"
                       onClick={(e) => { e.stopPropagation(); setOpenPicks(toggled(openPicks, w)) }}
