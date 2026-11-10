@@ -34,3 +34,16 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+End of the season for crowns there will be no ties, for the weekly wins it would go to seconds, thirds, fourths, etc, 
+all the way until a coinflip if still tied. For overall wins we would do something like most wins a week, least losses in a week, 
+longest correct streak, then a coinflip. And for betting we would do best bet (least likely win that you got right), 
+average bet odds (favoring someone who went for underdogs more, lower = win), and then a coinflip. 
+The chance of any of these going past their tiebreakers are very low, so coinflips would likely never be a problem.
+
+A more useful alternative is “second-best week,” or “best single week, then second-best week.
+
+Missed picks: the rule should be that an unpicked game counts as a loss. Otherwise someone who skips games can look better on “least losses.”
+
+Order for streak is kickoff then alphabetical

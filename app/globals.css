@@ -2098,3 +2098,283 @@ html[data-tc-theme="dark"] {
     font-style: italic;
     color: #8a998e;
 }
+
+/* ---- Responsive pass: paste at the VERY BOTTOM of app/globals.css (it must come after everything else) ---- */
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+img, svg, video {
+    max-width: 100%;
+}
+
+/* every button and link-button is comfortably tappable on touch screens */
+@media (pointer: coarse) {
+    .tc-small, .tc-smallGhost, .tc-pwBtn, .tc-cmpClose, .tc-modalCancel, .tc-lbMore, .tc-menuItem {
+        min-height: 42px;
+    }
+
+    .tc-pwBtn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 14px;
+    }
+
+    .tc-userBtn {
+        min-height: 42px;
+    }
+}
+
+/* ---------- Phones and small tablets ---------- */
+@media (max-width: 640px) {
+    /* use the whole screen: smaller outer gutter, card padding trimmed */
+    .tc-page {
+        padding: 72px 8px 20px;
+        align-items: flex-start;
+    }
+
+    .tc-card {
+        padding: 18px 12px;
+        border-radius: 18px;
+        max-width: none;
+    }
+
+    .tc-cardWide {
+        max-width: none;
+    }
+
+    .tc-appbarInner {
+        padding: 0 12px;
+    }
+
+    .tc-brand {
+        margin-bottom: 16px;
+    }
+
+    .tc-crown {
+        width: 36px;
+        height: 36px;
+    }
+
+    .tc-title {
+        font-size: 24px;
+    }
+
+    .tc-subtitle {
+        margin-bottom: 20px;
+    }
+
+    .tc-sectionTitle {
+        margin: 22px 0 8px;
+    }
+
+    /* crown tiles: three across is too tight for names, so stack them compactly */
+    .tc-raceTiles {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .tc-raceTile {
+        padding: 10px 12px;
+    }
+
+    .tc-raceCrown {
+        width: 22px;
+        height: 22px;
+    }
+
+    .tc-raceLeader {
+        font-size: 17px;
+    }
+
+    /* week cards: title on its own line, buttons wrap underneath instead of squeezing the title */
+    .tc-pwHead {
+        flex-wrap: wrap;
+        padding: 10px 12px;
+    }
+
+    .tc-pwBtns {
+        flex-wrap: wrap;
+        flex-shrink: 1;
+        gap: 8px;
+    }
+
+    .tc-pwRow {
+        padding: 9px 12px 9px 20px;
+    }
+
+    .tc-gmList {
+        padding: 8px;
+    }
+
+    .tc-gm {
+        padding: 8px 10px;
+    }
+
+    .tc-gmTeam {
+        gap: 8px;
+    }
+
+    .tc-gmName {
+        min-width: 0;
+    }
+
+    .tc-gmScore {
+        flex-shrink: 0;
+    }
+
+    /* compare view + popup */
+    .tc-cmp {
+        margin: 0 8px 10px;
+    }
+
+    .tc-cmpGame {
+        padding: 10px;
+    }
+
+    .tc-cmpCell {
+        padding: 8px 10px;
+    }
+
+    .tc-cmpPick {
+        font-size: 14px;
+        overflow-wrap: anywhere;
+    }
+
+    .tc-modalBack {
+        align-items: flex-end;
+        padding: 0;
+    }
+    /* popup slides up from the bottom, thumb-friendly */
+    .tc-modal {
+        max-width: none;
+        max-height: 88vh;
+        padding: 20px 16px 16px;
+        border-radius: 20px 20px 0 0;
+    }
+
+    /* podium */
+    .tc-pdm {
+        gap: 4px;
+    }
+
+    .tc-pdmName {
+        font-size: 13px;
+    }
+
+    .tc-pdmBlock-gold {
+        min-height: 130px;
+    }
+
+    .tc-pdmBlock-silver {
+        min-height: 98px;
+    }
+
+    .tc-pdmBlock-bronze {
+        min-height: 74px;
+    }
+
+    /* lists and rows */
+    .tc-row {
+        padding: 12px;
+    }
+
+    .tc-lbRow {
+        grid-template-columns: 44px 1fr auto;
+        padding: 11px 12px;
+    }
+
+    .tc-check {
+        padding: 12px;
+    }
+
+    .tc-pickHeader {
+        gap: 10px;
+    }
+
+    .tc-select {
+        max-width: 100%;
+    }
+
+    .tc-inline {
+        flex-wrap: wrap;
+    }
+
+    .tc-actions {
+        flex-wrap: wrap;
+    }
+
+    .tc-wkScore {
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+
+    /* the pick-reminder banner and user menu stay inside the screen */
+    .tc-remind {
+        padding: 10px 40px 10px 12px;
+        font-size: 13px;
+    }
+
+    .tc-userName {
+        max-width: 110px;
+    }
+
+    .tc-menu {
+        max-width: calc(100vw - 24px);
+    }
+}
+
+/* very small phones */
+@media (max-width: 380px) {
+    .tc-card {
+        padding: 16px 10px;
+    }
+
+    .tc-title {
+        font-size: 22px;
+    }
+
+    .tc-gmTag {
+        font-size: 10px;
+        padding: 1px 6px;
+    }
+}
+
+/* ---------- Desktop: use more of the width ---------- */
+@media (min-width: 900px) {
+    .tc-cardWide {
+        max-width: 880px;
+    }
+
+    .tc-appbarInner {
+        max-width: 1040px;
+    }
+
+    .tc-card {
+        padding: 44px 44px;
+    }
+
+    .tc-pdmCol {
+        max-width: 230px;
+    }
+
+    .tc-raceTiles {
+        gap: 14px;
+    }
+
+    .tc-gmList {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding: 12px;
+    }
+    /* pick cards in two columns */
+    .tc-gmList > .tc-cmp {
+        grid-column: 1 / -1;
+    }
+
+    .tc-modal {
+        max-width: 460px;
+    }
+}
