@@ -9,6 +9,7 @@ import Crown from '../../Crown'
 import Avatar from '../../Avatar'
 import RaceForTripleCrown from './RaceForTripleCrown'
 import s from '../../styles'
+import { usePageTitle } from '../../../lib/usePageTitle'
 
 type League = {
   id: string; name: string; join_code: string; owner_id: string; members_can_invite: boolean
@@ -31,6 +32,7 @@ function LeagueView() {
   const search = useSearchParams()
   const userId = useRequireUser()
   const [league, setLeague] = useState<League | null>(null)
+  usePageTitle(league?.name)
   const [members, setMembers] = useState<Member[]>([])
   const [notFound, setNotFound] = useState(false)
   const [who, setWho] = useState('')
