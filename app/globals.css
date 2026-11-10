@@ -2378,3 +2378,27 @@ img, svg, video {
         max-width: 460px;
     }
 }
+
+/* podium: keep long names and the "You" tag intact */
+.tc-pdmName {
+    overflow-wrap: anywhere;
+    hyphens: auto;
+    line-height: 1.2;
+}
+
+.tc-pdm .tc-youTag {
+    display: block;
+    width: fit-content;
+    margin: 4px auto 0;
+    white-space: nowrap;
+}
+
+.tc-pdmCol:first-child {
+    flex-grow: 1.15;
+}
+
+@media (max-width: 640px) {
+    .tc-pdmName {
+        font-size: clamp(11px, 3.3vw, 14px);
+    }
+}
