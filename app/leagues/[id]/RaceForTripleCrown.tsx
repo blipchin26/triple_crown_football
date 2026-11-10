@@ -220,7 +220,7 @@ export default function RaceForTripleCrown({
                         {viewing && me && viewUserId !== me ? 'Their pick' : 'Your pick'}
                       </span>
                     )}
-                     {g.locked && <CrowdCount names={crowd.get(`${g.game_id}:${side}`)} />}
+                     {!viewing && g.locked && <CrowdCount names={crowd.get(`${g.game_id}:${side}`)} />}
                   </span>                      
                   <span className="tc-gmScore">{side === 'home' ? g.home_score : g.away_score}</span>
                 </div>
@@ -405,7 +405,7 @@ export default function RaceForTripleCrown({
                 {weekHref && <a className="tc-pwBtn tc-pwBtnPrimary" href={weekHref(currentWeek)}>Make picks</a>}
                 <CompareHeaderButton week={currentWeek} cmp={cmp} show={!viewing && openPicks.has(currentWeek)} />
                 <button className="tc-pwBtn" onClick={() => setOpenPicks(toggled(openPicks, currentWeek))}>
-                  {openPicks.has(currentWeek) ? 'Hide picks' : viewing ? 'View picks' : 'View my picks'}
+                  {openPicks.has(currentWeek) ? 'Hide picks' : viewing ? 'View picks' : 'View picks'}
                 </button>
               </div>
             </div>
@@ -449,7 +449,7 @@ export default function RaceForTripleCrown({
                     {weekHref && <a className="tc-pwBtn tc-pwBtnPrimary" href={weekHref(w)}>Make picks</a>}
                     <CompareHeaderButton week={w} cmp={cmp} show={!viewing && openPicks.has(w)} />
                     <button className="tc-pwBtn" onClick={() => setOpenPicks(toggled(openPicks, w))}>
-                      {openPicks.has(w) ? 'Hide picks' : 'View my picks'}
+                      {openPicks.has(w) ? 'Hide picks' : 'View picks'}
                     </button>
                   </div>
                 </div>
@@ -494,7 +494,7 @@ export default function RaceForTripleCrown({
                       className="tc-pwBtn"
                       onClick={(e) => { e.stopPropagation(); setOpenPicks(toggled(openPicks, w)) }}
                     >
-                      {openPicks.has(w) ? 'Hide picks' : viewing ? 'View picks' : 'View my picks'}
+                      {openPicks.has(w) ? 'Hide picks' : viewing ? 'View picks' : 'View picks'}
                     </button>
                     <span className="tc-pwChevron">{resultsOpen ? '▾' : '▸'}</span>
                   </div>
