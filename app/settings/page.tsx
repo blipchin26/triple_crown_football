@@ -9,6 +9,7 @@ import { TEAMS, TIME_ZONES } from '../../lib/prefs'
 import Crown from '../Crown'
 import Avatar, { AVATAR_COLORS, AVATAR_EMOJI } from '../Avatar'
 import s from '../styles'
+import { usePageTitle } from '../../lib/usePageTitle'
 
 type Profile = {
   username: string; avatar_config: { color?: string; emoji?: string } | null
@@ -21,6 +22,7 @@ type Flash = { section: string; kind: 'ok' | 'err'; text: string } | null
 const changed = () => window.dispatchEvent(new Event('tc-prefs-changed'))
 
 export default function SettingsPage() {
+  usePageTitle('Settings')
   const router = useRouter()
   const userId = useRequireUser()
   const [p, setP] = useState<Profile | null>(null)

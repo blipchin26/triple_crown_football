@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { useRequireUser } from '../../lib/useRequireUser'
 import Crown from '../Crown'
 import s from '../styles'
+import { usePageTitle } from '../../lib/usePageTitle'
 
 type MyLeague = { id: string; name: string; role: string }
 type Invite = { invite_id: string; league_id: string; league_name: string; invited_by_name: string }
@@ -15,6 +16,8 @@ export default function LeaguesPage() {
   const router = useRouter()
   const userId = useRequireUser()
   const [leagues, setLeagues] = useState<MyLeague[]>([])
+  const [league, setLeague] = useState<League | null>(null)
+  usePageTitle(league?.name)
   const [invites, setInvites] = useState<Invite[]>([])
   const [name, setName] = useState('')
   const [error, setError] = useState('')
