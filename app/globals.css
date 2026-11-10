@@ -2402,3 +2402,299 @@ img, svg, video {
         font-size: clamp(11px, 3.3vw, 14px);
     }
 }
+
+/* ---- Tiebreakers + crown pages: add to the bottom of app/globals.css ---- */
+
+/* the "?" info button and its popup text */
+.tc-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin-left: 6px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    color: #3d5a47;
+    background: #fff;
+    border: 1.5px solid #c9d3c6;
+    border-radius: 50%;
+    cursor: pointer;
+    vertical-align: middle;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+    .tc-info:hover, .tc-info:focus-visible {
+        color: #fff;
+        background: #16a34a;
+        border-color: #16a34a;
+        outline: none;
+    }
+
+.tc-infoBody {
+    margin-bottom: 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #33453a;
+    overflow-y: auto;
+}
+
+    .tc-infoBody p {
+        margin: 0 0 10px;
+    }
+
+.tc-cwRules {
+    margin: 0;
+    padding-left: 20px;
+}
+
+    .tc-cwRules li {
+        margin-bottom: 8px;
+    }
+
+/* crown page */
+.tc-cwTabs {
+    display: flex;
+    gap: 6px;
+    margin: 4px 0 18px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tc-cwTab {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #5f6f65;
+    text-decoration: none;
+    background: #eef2ec;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+    .tc-cwTab:hover {
+        color: #0f1a14;
+    }
+
+.tc-cwTabOn {
+    color: #fff;
+    background: #15803d;
+}
+
+    .tc-cwTabOn:hover {
+        color: #fff;
+    }
+
+.tc-cwHead {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    text-align: left;
+    margin-bottom: 14px;
+}
+
+.tc-cwCrown {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    color: #d9a520;
+}
+
+.tc-cwTitle {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.tc-cwBlurb {
+    font-size: 14px;
+    color: #5f6f65;
+    margin-top: 2px;
+}
+
+.tc-cwRulesBox {
+    margin-bottom: 18px;
+    text-align: left;
+    background: #f6f8f5;
+    border: 1.5px solid #e4eae2;
+    border-radius: 14px;
+}
+
+    .tc-cwRulesBox > summary {
+        cursor: pointer;
+        padding: 12px 14px;
+        font-size: 14px;
+        font-weight: 800;
+        color: #25352b;
+    }
+
+    .tc-cwRulesBox ol {
+        margin: 0;
+        padding: 0 16px 14px 34px;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #33453a;
+    }
+
+    .tc-cwRulesBox li {
+        margin-bottom: 6px;
+    }
+
+.tc-cwList {
+    display: grid;
+    gap: 10px;
+    text-align: left;
+}
+
+.tc-cwCard {
+    padding: 12px 14px;
+    background: #fff;
+    border: 1.5px solid #e4eae2;
+    border-radius: 16px;
+}
+
+.tc-cwMe {
+    background: #f3faf5;
+    border-color: #b9dfc7;
+}
+
+.tc-cwTop {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tc-cwRank {
+    flex-shrink: 0;
+    min-width: 44px;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-weight: 900;
+    text-align: center;
+    color: #3d5a47;
+    background: #eef2ec;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.tc-cwGold {
+    color: #3d2c00;
+    background: linear-gradient(135deg, #fff1b8, #f2c230);
+}
+
+.tc-cwSilver {
+    color: #2a3138;
+    background: linear-gradient(135deg, #f4f6f8, #c5ccd3);
+}
+
+.tc-cwBronze {
+    color: #3b2410;
+    background: linear-gradient(135deg, #f6e0cc, #d9a26b);
+}
+
+.tc-cwName {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.tc-cwMain {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+}
+
+.tc-cwMainVal {
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.tc-cwMainLbl {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7c71;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tc-cwChips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.tc-cwChip {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    background: #f6f8f5;
+    border: 1.5px solid #e4eae2;
+    border-radius: 12px;
+}
+
+.tc-cwChipHit {
+    background: #fff8e1;
+    border-color: #d9a520;
+}
+
+.tc-cwChipExtra {
+    background: #fff;
+    border-style: dashed;
+}
+
+.tc-cwChipLbl {
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7c71;
+}
+
+.tc-cwNum {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-right: 5px;
+    font-style: normal;
+    font-size: 10px;
+    font-weight: 800;
+    color: #fff;
+    background: #8a9a90;
+    border-radius: 50%;
+}
+
+.tc-cwChipVal {
+    font-size: 16px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.tc-cwNote {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #6b4e00;
+}
+
+/* small "?" next to section titles on the league page */
+.tc-sectionTitle .tc-info {
+    margin-left: 8px;
+}

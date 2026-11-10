@@ -4,10 +4,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import Crown from '../../Crown'
 import { CompareHeaderButton, ComparePicker, ComparePicks, CrowdCount, useCompare, useCrowd } from './PickCrowd'
+import { useRouter } from 'next/navigation'
+import InfoTip from '../../InfoTip'
+import { CROWN_SLUG, ULTIMATE_SLUG } from './crowns/config'
 
 type Row = {
   user_id: string; username: string
   correct: number; total: number; weekly_wins: number; upset_points: number
+  rank_correct: number; rank_weekly: number; rank_upset: number
+  tie_correct: boolean; tie_weekly: boolean; tie_upset: boolean
+  avg_place: number; rank_overall: number; tie_overall: boolean
 }
 type WeekRow = {
   week: number; user_id: string; username: string
@@ -81,6 +87,7 @@ export default function RaceForTripleCrown({
   leagueId, weekHref, viewUserId,
 }: { leagueId: string; weekHref?: (week: number) => string; viewUserId?: string }) {
   const viewing = !!viewUserId
+  const router = useRouter()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [weekRows, setWeekRows] = useState<WeekRow[]>([])
   const [games, setGames] = useState<Game[]>([])
@@ -102,14 +109,14 @@ export default function RaceForTripleCrown({
 
   const load = useCallback(async () => {
     const [a, b, c] = await Promise.all([
-      supabase.rpc('league_standings', { p_league: leagueId }),
+      supabase.rpc('league_crown_details', { p_league: leagueId }),
       supabase.rpc('league_week_results', { p_league: leagueId }),
       supabase.rpc('league_member_week_picks', { p_league: leagueId, p_user: viewUserId ?? null }),
     ])
     const err = a.error ?? b.error ?? c.error
     if (err) { setError(err.message); return }
     setError('')
-    setRows((a.data ?? []) as Row[])
+    setRows(((a.data ?? []) as Row[]).map((r) => ({ ...r, avg_place: Number(r.avg_place) })))
     setWeekRows((b.data ?? []) as WeekRow[])
     setGames((c.data ?? []) as Game[])
   }, [leagueId, viewUserId])
@@ -144,23 +151,26 @@ export default function RaceForTripleCrown({
   if (error) return <div className="tc-error">{error}</div>
   if (!rows) return null
 
+  // Ranks come from the database, with every tiebreaker already applied.
+  // `tied` is true only when players are level on every tiebreaker (a coin flip settles those at season end).
+  const RANK = { correct: 'rank_correct', weekly_wins: 'rank_weekly', upset_points: 'rank_upset' } as const
+  const TIE = { correct: 'tie_correct', weekly_wins: 'tie_weekly', upset_points: 'tie_upset' } as const
+
   // Crown leaders
   const leaders = CROWNS.map((c) => {
     const top = Math.max(0, ...rows.map((r) => r[c.key]))
-    return { ...c, top, who: top > 0 ? rows.filter((r) => r[c.key] === top) : [] }
+    return { ...c, top, who: top > 0 ? rows.filter((r) => r[RANK[c.key]] === 1) : [] }
   })
   const leadsOf = (id: string) => leaders.filter((l) => l.who.some((w) => w.user_id === id)).map((l) => l.key)
   const tripleHolder = rows.find((r) => leadsOf(r.user_id).length === 3)
 
   // Places in each crown, and the overall ranking by average placement (lower is better).
-  // Ties share a place for now; tiebreakers get added later.
   const places = Object.fromEntries(
-    CROWNS.map((c) => [c.key, placeBy(rows, (r) => r.user_id, (r) => r[c.key])]),
+    CROWNS.map((c) => [c.key, new Map(rows.map((r) => [r.user_id, { rank: r[RANK[c.key]], tied: r[TIE[c.key]] }]))]),
   ) as Record<CrownKey, Map<string, Place>>
-  const rankSum = (id: string) => CROWNS.reduce((n, c) => n + (places[c.key].get(id)?.rank ?? rows.length), 0)
-  const avgOf = (id: string) => (rankSum(id) / CROWNS.length).toFixed(1)
-  const overall = [...rows].sort((a, b) => rankSum(a.user_id) - rankSum(b.user_id) || a.username.localeCompare(b.username))
-  const overallPlace = placeBy(rows, (r) => r.user_id, (r) => rankSum(r.user_id), true)
+  const avgOf = (id: string) => (rows.find((r) => r.user_id === id)?.avg_place ?? 0).toFixed(2)
+  const overall = [...rows].sort((a, b) => a.rank_overall - b.rank_overall || a.username.localeCompare(b.username))
+  const overallPlace = new Map<string, Place>(rows.map((r) => [r.user_id, { rank: r.rank_overall, tied: r.tie_overall }]))
   const top3 = overall.slice(0, 3)
   const myRow = me ? rows.find((r) => r.user_id === me) : undefined
   const others = rows.filter((r) => r.user_id !== me).map((r) => ({ user_id: r.user_id, username: r.username }))
@@ -276,7 +286,13 @@ export default function RaceForTripleCrown({
         </>
       ) : (
       <>
-      <div className="tc-sectionTitle">Race for the Triple Crown</div>
+      <div className="tc-sectionTitle">
+        Race for the Triple Crown
+        <InfoTip title="The Triple Crown">
+          <p>Three crowns run all season: <strong>Most Correct</strong>, <strong>Weekly Wins</strong> and <strong>Upset Points</strong>.</p>
+          <p>If two players are level, tiebreakers decide it. Tap any crown to see every player and each tiebreaker in order. A game you do not pick counts as a loss.</p>
+        </InfoTip>
+      </div>
       <div className="tc-raceTiles">
         {leaders.map((l) => (
           <div
@@ -285,9 +301,9 @@ export default function RaceForTripleCrown({
             tabIndex={0}
             aria-expanded={openCrown === l.key}
             className={`tc-raceTile tc-raceTileBtn ${l.who.length ? 'tc-raceTileLead' : ''} ${openCrown === l.key ? 'tc-raceTileOpen' : ''}`}
-            onClick={() => toggleCrown(l.key)}
+            onClick={() => router.push(`/leagues/${leagueId}/crowns/${CROWN_SLUG[l.key]}`)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCrown(l.key) }
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/leagues/${leagueId}/crowns/${CROWN_SLUG[l.key]}`) }
             }}
           >
             <Crown className="tc-raceCrown" />
@@ -306,7 +322,7 @@ export default function RaceForTripleCrown({
           </div>
         ))}
       </div>
-      <p className="tc-lbHint">Tap a crown to see everyone&apos;s standing.</p>
+      <p className="tc-lbHint">Tap a crown for the full standings and every tiebreaker.</p>
 
       {openDef && (
         <div className="tc-lbPanel">
@@ -332,7 +348,13 @@ export default function RaceForTripleCrown({
         <div className="tc-raceBanner">{tripleHolder.username} is on track for the Triple Crown!</div>
       )}
 
-      <div className="tc-sectionTitle">Ultimate winner · average placement</div>
+      <div className="tc-sectionTitle">
+        Ultimate winner · average placement
+        <InfoTip title="Ultimate winner">
+          <p>Your place in each of the three crowns, averaged. Lower is better.</p>
+          <p>Ties go to the player with the most 1st-place crowns, then the best single placement, then a coin flip at the end of the season.</p>
+        </InfoTip>
+      </div>
       {anyStandings ? (
         <>
           <div className="tc-pdm">
@@ -377,6 +399,9 @@ export default function RaceForTripleCrown({
               ))}
             </div>
           )}
+          <button className="tc-lbMore" onClick={() => router.push(`/leagues/${leagueId}/crowns/${ULTIMATE_SLUG}`)}>
+            Full breakdown and tiebreakers ›
+          </button>
           {overall.length > 3 && (
             <button className="tc-lbMore" onClick={() => setShowAll(!showAll)}>
               {showAll ? 'Show top 3' : `Full ranking (${overall.length})`}
