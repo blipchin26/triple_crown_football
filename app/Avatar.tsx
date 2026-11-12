@@ -1,21 +1,38 @@
 import s from './styles'
+import { SLOT_ORDER, itemUrl, readSlots, type Slots } from '../lib/avatar'
 
-export const AVATAR_COLORS = ['#e4eae2', '#f6c9c9', '#f9dcb4', '#f6ecaa', '#cdeccb', '#bfe6e6', '#c4d7f5', '#d9cdf3', '#f3c9e4']
-export const AVATAR_EMOJI = ['🏈', '👑', '🔥', '⚡', '🐐', '🎯', '🧠', '🦅', '🐻', '🐬', '🦁', '🐯', '🎩', '🚀', '💎', '🍀']
-
-// A player's picture: a colored circle with an emoji, or their initial if they haven't chosen an emoji.
-// Every place that shows a player uses this one component, so shop avatars can replace it later.
-export default function Avatar({ config, size = 30, name }: {
-  config?: Record<string, unknown> | null; size?: number; name?: string | null
+// A player's little character: transparent layers stacked on a shared canvas.
+// Small sizes (<= 64px) zoom in on the head and shoulders so the face is still readable.
+// `shape="card"` shows the whole scene in a rounded square instead of a circle (profile page, editor).
+// `override` lets the editor show an unsaved look; `bust` forces or disables the zoom.
+export default function Avatar({ config, size = 30, name, override, bust, shape = 'circle' }: {
+  config?: Record<string, unknown> | null
+  size?: number
+  name?: string | null
+  override?: Slots
+  bust?: boolean
+  shape?: 'circle' | 'card'
 }) {
-  const color = typeof config?.color === 'string' ? config.color : undefined
-  const emoji = typeof config?.emoji === 'string' ? config.emoji : ''
-  const label = emoji || (color && name ? name.trim().charAt(0).toUpperCase() : '')
+  const { slots: saved, legacyColor } = readSlots(config)
+  const slots = override ?? saved
+  const zoom = bust ?? (shape === 'circle' && size <= 64)
+  const inner = zoom ? size * 1.54 : size
+  const left = zoom ? -size * 0.27 : 0
+  const top = zoom ? -size * 0.154 : 0
+
   return (
-    <span className={s.avatar} aria-hidden="true"
-      style={{ width: size, height: size, background: color, fontSize: size * 0.52, lineHeight: `${size - 3}px`,
-               textAlign: 'center', fontWeight: 800, color: '#0f1a14', overflow: 'hidden' }}>
-      {label}
+    <span className={s.avatar} role="img" aria-label={name ? `${name}'s avatar` : 'Avatar'}
+      style={{ width: size, height: size, position: 'relative', display: 'inline-block', overflow: 'hidden',
+               borderRadius: shape === 'card' ? Math.round(size * 0.12) : '50%', background: legacyColor ?? '#dfe8dc', flexShrink: 0 }}>
+      {SLOT_ORDER.map((slot) => {
+        const id = slots[slot]
+        if (!id) return null
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={slot} src={itemUrl(slot, id)} alt="" draggable={false}
+            style={{ position: 'absolute', left, top, width: inner, height: inner, maxWidth: 'none', pointerEvents: 'none' }} />
+        )
+      })}
     </span>
   )
 }

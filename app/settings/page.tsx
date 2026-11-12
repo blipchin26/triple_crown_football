@@ -7,12 +7,12 @@ import { supabase } from '../../lib/supabase'
 import { useRequireUser } from '../../lib/useRequireUser'
 import { TEAMS, TIME_ZONES } from '../../lib/prefs'
 import Crown from '../Crown'
-import Avatar, { AVATAR_COLORS, AVATAR_EMOJI } from '../Avatar'
+import Avatar from '../Avatar'
+import TokenPill from '../TokenPill'
 import s from '../styles'
-import { usePageTitle } from '../../lib/usePageTitle'
 
 type Profile = {
-  username: string; avatar_config: { color?: string; emoji?: string } | null
+  username: string; avatar_config: Record<string, unknown> | null
   bio: string | null; favorite_team: string | null; share_picks: boolean
   time_zone: string | null; theme: 'system' | 'light' | 'dark'; remind_picks: boolean
   landing: 'last' | 'list'; username_changed_at: string | null
@@ -22,7 +22,6 @@ type Flash = { section: string; kind: 'ok' | 'err'; text: string } | null
 const changed = () => window.dispatchEvent(new Event('tc-prefs-changed'))
 
 export default function SettingsPage() {
-  usePageTitle('Settings')
   const router = useRouter()
   const userId = useRequireUser()
   const [p, setP] = useState<Profile | null>(null)
@@ -33,8 +32,6 @@ export default function SettingsPage() {
   const [username, setUsername] = useState('')
   const [bio, setBio] = useState('')
   const [team, setTeam] = useState('')
-  const [color, setColor] = useState('')
-  const [emoji, setEmoji] = useState('')
   const [email, setEmail] = useState('')
   const [curPw, setCurPw] = useState('')
   const [newPw, setNewPw] = useState('')
@@ -55,8 +52,6 @@ export default function SettingsPage() {
         setUsername(data.username)
         setBio(data.bio ?? '')
         setTeam(data.favorite_team ?? '')
-        setColor(data.avatar_config?.color ?? '')
-        setEmoji(data.avatar_config?.emoji ?? '')
       })
   }, [userId])
 
@@ -79,7 +74,6 @@ export default function SettingsPage() {
 
   async function saveProfile() {
     const ok = await patch('profile', {
-      avatar_config: { ...(color && { color }), ...(emoji && { emoji }) },
       bio: bio.trim() || null,
       favorite_team: team || null,
     }, 'Profile saved.')
@@ -134,7 +128,6 @@ export default function SettingsPage() {
   const nextChange = p?.username_changed_at
     ? new Date(new Date(p.username_changed_at).getTime() + 30 * 86400000) : null
   const profileDirty = !!p && (
-    (p.avatar_config?.color ?? '') !== color || (p.avatar_config?.emoji ?? '') !== emoji ||
     (p.bio ?? '') !== bio.trim() || (p.favorite_team ?? '') !== team)
 
   return (
@@ -151,34 +144,19 @@ export default function SettingsPage() {
             {/* ---------- Profile ---------- */}
             <div className={s.sectionTitle}>Profile</div>
             <div className={s.profileHead}>
-              <Avatar config={{ color, emoji }} name={p.username} size={64} />
+              <Avatar config={p.avatar_config} name={p.username} size={64} />
               <div>
                 <div className={s.profileName}>{p.username}</div>
+                <TokenPill userId={userId} />
                 {team && <div className={s.profileMeta}>{team} fan</div>}
               </div>
             </div>
 
             <div className={s.field}>
-              <label className={s.label}>Avatar color</label>
-              <div className={s.swatches}>
-                {AVATAR_COLORS.map((c) => (
-                  <button key={c} type="button" aria-label={`Color ${c}`}
-                    className={`${s.swatch} ${color === c ? s.swatchOn : ''}`} style={{ background: c }}
-                    onClick={() => setColor(c)} />
-                ))}
-              </div>
-            </div>
-            <div className={s.field}>
-              <label className={s.label}>Avatar icon</label>
-              <div className={s.swatches}>
-                <button type="button" className={`${s.emojiBtn} ${emoji === '' ? s.swatchOn : ''}`}
-                  onClick={() => setEmoji('')}>Aa</button>
-                {AVATAR_EMOJI.map((e) => (
-                  <button key={e} type="button" className={`${s.emojiBtn} ${emoji === e ? s.swatchOn : ''}`}
-                    onClick={() => setEmoji(e)}>{e}</button>
-                ))}
-              </div>
-              <div className={s.hint}>Aa uses your first initial. Shop avatars will go here later.</div>
+              <Link href="/settings/avatar" className={s.secondary} style={{ display: 'inline-block', textDecoration: 'none' }}>
+                Edit avatar &amp; open shop
+              </Link>
+              <div className={s.hint}>Dress your character, spend tokens and see your history.</div>
             </div>
             <div className={s.field}>
               <label className={s.label} htmlFor="bio">Tagline</label>

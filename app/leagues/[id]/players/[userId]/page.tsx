@@ -7,6 +7,7 @@ import { supabase } from '../../../../../lib/supabase'
 import { useRequireUser } from '../../../../../lib/useRequireUser'
 import Crown from '../../../../Crown'
 import Avatar from '../../../../Avatar'
+import TokenPill from '../../../../TokenPill'
 import RaceForTripleCrown from '../../RaceForTripleCrown'
 import s from '../../../../styles'
 
@@ -61,11 +62,12 @@ function PlayerView() {
         {state === 'ready' && player && (
           <>
             <div className={s.profileHead}>
-              <Avatar config={player.profiles?.avatar_config} size={76} />
+              <Avatar config={player.profiles?.avatar_config} size={200} shape="card" name={player.profiles?.username} />
               <h1 className={s.profileName}>
                 {player.profiles?.username ?? 'Unknown'}
                 {player.role === 'owner' && <Crown className={s.crownSm} />}
               </h1>
+              <TokenPill userId={playerId} />
               <div className={s.profileMeta}>
                 {isSelf ? 'This is you' : 'League player'}
                 {player.role !== 'member' && ' · Admin'}

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '../../../../../lib/supabase'
 import { useRequireUser } from '../../../../../lib/useRequireUser'
 import { upsetPoints } from '../../../../../lib/scoring'
+import BetPanel, { useBetting } from '../../BetPanel'
 import s from '../../../../styles'
 
 type Side = 'away' | 'home'
@@ -42,6 +43,8 @@ function WeekView() {
   // per-game save feedback: a quick spinner, then a check
   const [saveState, setSaveState] = useState<Record<number, 'saving' | 'saved'>>({})
   const saveTimers = useRef<Record<number, number>>({})
+  // tokens + your bets for the games on this page (the hook must stay above any early return)
+  const betting = useBetting(games.map((g) => g.id))
 
   // keep lock status fresh without a page refresh
   useEffect(() => {
@@ -232,6 +235,7 @@ function WeekView() {
                             )
                           })}
                         </div>
+                        <BetPanel game={g} betting={betting} />
                         {locked && !picks[g.id] && (
                           <p className={s.hint}>No pick made. This game counts as a loss.</p>
                         )}

@@ -2698,3 +2698,404 @@ img, svg, video {
 .tc-sectionTitle .tc-info {
     margin-left: 8px;
 }
+
+/* ===== Avatar editor, shop, token pill, bet panel. Paste at the bottom of globals.css ===== */
+.tc-tokenPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px 2px 4px;
+    border-radius: 999px;
+    background: #fff6d6;
+    border: 1px solid #e7cf73;
+    color: #6b5400;
+    font-weight: 800;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.tc-coin {
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    margin-right: 4px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffe27a, #e0a800);
+    border: 1px solid #b88700;
+    color: #6b4a00;
+    font: 800 10px/1 system-ui, sans-serif;
+    font-style: normal;
+    flex-shrink: 0;
+}
+
+.tc-tokenPill .tc-coin {
+    margin-right: 0;
+}
+
+.tc-menuTokens {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: #4a5a50;
+}
+
+.tc-avEditorTop {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin: 6px 0 18px;
+    flex-wrap: wrap;
+}
+
+.tc-avBalance {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tc-avBalanceNum {
+    display: flex;
+    align-items: center;
+    font-size: 30px;
+    font-weight: 800;
+    color: #0f1a14;
+}
+
+    .tc-avBalanceNum .tc-coin {
+        width: 26px;
+        height: 26px;
+        font-size: 13px;
+        margin-right: 8px;
+    }
+
+.tc-linkBtn {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: #2a7a4b;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    display: inline-flex;
+    align-items: center;
+}
+
+    .tc-linkBtn:disabled {
+        opacity: .5;
+        cursor: default;
+    }
+
+.tc-ledger {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 8px 12px;
+    max-height: 220px;
+    overflow: auto;
+    border: 1px solid #dfe8dc;
+    border-radius: 12px;
+    font-size: 13px;
+}
+
+    .tc-ledger li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 5px 0;
+        border-bottom: 1px solid #eef3ec;
+    }
+
+        .tc-ledger li:last-child {
+            border-bottom: 0;
+        }
+
+.tc-plus {
+    color: #1f7a3d;
+}
+
+.tc-minus {
+    color: #b3261e;
+}
+
+.tc-avTabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tc-avTab {
+    flex: 0 0 auto;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid #cfdccb;
+    background: #fff;
+    color: #2d3b33;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.tc-avTabOn {
+    background: #0f1a14;
+    border-color: #0f1a14;
+    color: #fff;
+}
+
+.tc-avGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 10px;
+}
+
+.tc-avItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 6px 8px;
+    border: 2px solid #dfe8dc;
+    border-radius: 14px;
+    background: #fff;
+    text-align: center;
+}
+
+.tc-avItemOn {
+    border-color: #2a7a4b;
+    box-shadow: 0 0 0 3px rgba(42, 122, 75, .18);
+}
+
+.tc-avPick {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: inherit;
+    font: inherit;
+}
+
+.tc-avName {
+    font-size: 12px;
+    font-weight: 700;
+    color: #2d3b33;
+    line-height: 1.2;
+}
+
+.tc-avNone {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px dashed #b9c8b4;
+    display: grid;
+    place-items: center;
+    color: #7a8a80;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tc-avMeta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 11px;
+    min-height: 34px;
+}
+
+.tc-avOwned {
+    color: #1f7a3d;
+    font-weight: 800;
+}
+
+.tc-avExcl {
+    color: #8a5a00;
+    font-weight: 800;
+}
+
+.tc-avRarity {
+    color: #8a978f;
+}
+
+.tc-avBuy {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px 3px 4px;
+    border-radius: 999px;
+    border: 1px solid #b88700;
+    background: #fff6d6;
+    color: #6b4a00;
+    font-weight: 800;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+    .tc-avBuy:disabled {
+        opacity: .45;
+        cursor: not-allowed;
+    }
+
+    .tc-avBuy .tc-coin {
+        width: 16px;
+        height: 16px;
+        margin-right: 4px;
+        font-size: 9px;
+    }
+
+.tc-avR_rare {
+    border-color: #b7cdf0;
+}
+
+.tc-avR_epic {
+    border-color: #d1b6f0;
+}
+
+.tc-avR_legendary {
+    border-color: #e7cf73;
+    background: #fffbea;
+}
+
+.tc-avItemOn.tc-avR_rare, .tc-avItemOn.tc-avR_epic, .tc-avItemOn.tc-avR_legendary {
+    border-color: #2a7a4b;
+}
+
+.tc-avBuyPreview {
+    display: flex;
+    justify-content: center;
+    margin: 8px 0 12px;
+}
+
+/* bets */
+.tc-bet {
+    margin-top: 10px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: #fffaf0;
+    border: 1px solid #f0e2b0;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.tc-betDone {
+    background: #f4f7f2;
+    border-color: #dfe8dc;
+}
+
+.tc-betOpen {
+    display: block;
+}
+
+.tc-betBtns {
+    display: inline-flex;
+    gap: 14px;
+}
+
+.tc-betSides {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tc-betSide {
+    flex: 1;
+    padding: 9px 8px;
+    border-radius: 10px;
+    border: 2px solid #dfe8dc;
+    background: #fff;
+    font-weight: 800;
+    cursor: pointer;
+    color: #2d3b33;
+}
+
+.tc-betSideOn {
+    border-color: #b88700;
+    background: #fff6d6;
+}
+
+.tc-betRow {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+    .tc-betRow .tc-input {
+        flex: 1 1 160px;
+        min-width: 0;
+    }
+
+.tc-betChips {
+    display: flex;
+    gap: 6px;
+}
+
+.tc-chip {
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid #cfdccb;
+    background: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.tc-chip:disabled {
+    opacity: .45;
+}
+
+html[data-tc-theme="dark"] .tc-avatar img {
+    filter: none;
+}
+
+/* owner crown sits NEXT to the name */
+.tc-rowTitle:has(.tc-crownSm) {
+    display: inline-flex;
+    align-items: center;
+}
+
+.tc-profileName:has(.tc-crownSm) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===== "picks in" badge. Paste at the bottom of globals.css ===== */
+.tc-pickBadge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .02em;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.tc-pickBadge_done {
+    color: #17663a;
+    background: #dff3e6;
+}
+
+.tc-pickBadge_some {
+    color: #7a5200;
+    background: #fff1cf;
+}
+
+.tc-pickBadge_none {
+    color: #6b7c71;
+    background: #eef2ec;
+}

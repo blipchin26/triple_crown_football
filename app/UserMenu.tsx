@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../lib/supabase'
 import Avatar from './Avatar'
+import TokenPill from './TokenPill'
 import s from './styles'
 
 export default function UserMenu() {
   const router = useRouter()
+  const [uid, setUid] = useState<string | null>(null)
   const [name, setName] = useState<string | null>(null)
   const [avatar, setAvatar] = useState<Record<string, unknown> | null>(null)
   const [team, setTeam] = useState<string | null>(null)
@@ -18,6 +20,7 @@ export default function UserMenu() {
   useEffect(() => {
     const load = () => supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
+      setUid(user.id)
       const { data } = await supabase
         .from('profiles').select('username, avatar_config, favorite_team').eq('id', user.id).single()
       setName(data?.username ?? user.email ?? 'Player')
@@ -63,6 +66,10 @@ export default function UserMenu() {
         <div className={s.menu} role="menu">
           <div className={s.menuHead}>Signed in as <strong>{name}</strong></div>
           <div className={s.menuSep} />
+          <div className={s.menuTokens}>Tokens <TokenPill userId={uid} /></div>
+          <Link href="/settings/avatar" className={s.menuItem} role="menuitem" onClick={() => setOpen(false)}>
+            Avatar &amp; shop
+          </Link>
           <Link href="/settings" className={s.menuItem} role="menuitem" onClick={() => setOpen(false)}>
             Profile &amp; settings
           </Link>

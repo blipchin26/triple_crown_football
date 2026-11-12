@@ -10,6 +10,7 @@ import Avatar from '../../Avatar'
 import RaceForTripleCrown from './RaceForTripleCrown'
 import s from '../../styles'
 import { usePageTitle } from '../../../lib/usePageTitle'
+import PickBadge, { usePickStatus } from './PickStatus'
 
 type League = {
   id: string; name: string; join_code: string; owner_id: string; members_can_invite: boolean
@@ -28,6 +29,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 function LeagueView() {
   const { id } = useParams<{ id: string }>()
+  const { counts, week } = usePickStatus(id)
   const router = useRouter()
   const search = useSearchParams()
   const userId = useRequireUser()
@@ -166,6 +168,7 @@ function LeagueView() {
                         <span className={s.rowTitle}>
                           {m.profiles?.username ?? 'Unknown'}
                           {m.user_id === userId && <span className={s.youTag}>You</span>}
+                          <PickBadge count={counts[m.user_id]} week={week} />
                           {m.role === 'owner' && <Crown className={s.crownSm} />}
                         </span>
                       </span>
