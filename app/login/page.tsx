@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 import { goAfterAuth } from '../../lib/redirect'
@@ -18,6 +18,8 @@ export default function LoginPage() {
   const [info, setInfo] = useState('')
   const [sentTo, setSentTo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [checkingConfirm, setCheckingConfirm] = useState(false)
+  const inflight = useRef(false)   // stops two sign-in attempts overlapping
 
   // Go home as soon as a session exists (already signed in, or email just confirmed in another tab)
   useEffect(() => {
@@ -30,15 +32,49 @@ export default function LoginPage() {
     return () => subscription.unsubscribe()
   }, [router])
 
-  // While waiting for email confirmation, keep checking so this tab signs in automatically
+  // While waiting for email confirmation: same-device links sign this tab in by themselves (session polling).
+  // If the link was opened on ANOTHER device (e.g. your phone), no session ever reaches this tab, but the account is
+  // confirmed by then, so we sign in with the password you just typed, as soon as you come back to this tab.
+  async function tryConfirmedLogin(showMessage: boolean) {
+    if (!sentTo || inflight.current) return
+    inflight.current = true
+    if (showMessage) { setCheckingConfirm(true); setError(''); setInfo('') }
+    const { error } = await supabase.auth.signInWithPassword({ email: sentTo, password })
+    inflight.current = false
+    setCheckingConfirm(false)
+    if (!error) return goAfterAuth(router)
+    if (showMessage) {
+      if (/not confirmed/i.test(error.message)) setInfo('Not confirmed yet. Open the link in the email first, then tap this again.')
+      else setError(error.message)
+    }
+  }
+
   useEffect(() => {
     if (!sentTo) return
-    const id = setInterval(async () => {
+    // same-device link: a session appears in this browser
+    const sessionPoll = setInterval(async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) goAfterAuth(router)
     }, 2000)
-    return () => clearInterval(id)
-  }, [sentTo, router])
+    // other-device link: try the password every 15s while this tab is visible (20 per 5 min, under Supabase's
+    // sign-in limit), for up to 15 minutes. A not-yet-confirmed account just returns an error we ignore.
+    let tries = 0
+    const loginPoll = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      if (++tries > 75) { clearInterval(loginPoll); return }
+      tryConfirmedLogin(false)
+    }, 15000)
+    const onVisible = () => { if (document.visibilityState === 'visible') tryConfirmedLogin(false) }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      clearInterval(sessionPoll)
+      clearInterval(loginPoll)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sentTo, router, password])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -96,11 +132,14 @@ export default function LoginPage() {
           {brand}
           <h1 className={s.title}>Check your email</h1>
           <p className={s.subtitle}>
-            We sent a confirmation link to <strong>{sentTo}</strong>. Click it and you&apos;ll
-            be signed in automatically. You can leave this tab open.
+            We sent a confirmation link to <strong>{sentTo}</strong>. Open it on any device, then
+            come back here and you&apos;ll be signed in. You can leave this tab open.
           </p>
           {error && <div className={s.error}>{error}</div>}
           {info && <div className={s.notice}>{info}</div>}
+          <button className={s.primary} disabled={checkingConfirm} onClick={() => tryConfirmedLogin(true)}>
+            {checkingConfirm ? 'Checking...' : "I've confirmed my email"}
+          </button>
           <button className={s.secondary} onClick={resend}>Resend email</button>
           <div className={s.switch}>
             <button className={s.link} onClick={() => { setSentTo(null); setMode('login') }}>
