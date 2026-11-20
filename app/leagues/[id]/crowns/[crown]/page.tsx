@@ -34,21 +34,40 @@ function deciding(a: CrownRow, b: CrownRow, breakers: Metric[]): Metric | null {
   return null
 }
 
+const CROWN_CONFIG_SLUG: Record<string, string> = {
+  most_correct: 'most-wins',
+  weekly_wins: 'weekly-wins',
+  upset_points: 'upset-points',
+  survival: 'survival',
+}
+
 function CrownView() {
   const [rulesOpen, setRulesOpen] = useState(false)
   const { id, crown } = useParams<{ id: string; crown: string }>()
   const userId = useRequireUser()
-  const page = CROWN_PAGES.find((p) => p.slug === crown)
+  const page = CROWN_PAGES.find((p) => p.slug === crown) 
   const [rows, setRows] = useState<CrownRow[] | null>(null)
   const [leagueName, setLeagueName] = useState('')
+  const [crownConfig, setCrownConfig] = useState<string[] | null>(null)
+
+  const visibleCrownPages = CROWN_PAGES.filter((p) =>
+      p.slug === 'ultimate' ||
+      (crownConfig ?? []).some((key) => CROWN_CONFIG_SLUG[key] === p.slug)
+    )
+
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!userId) return
-    supabase.from('leagues').select('name').eq('id', id).maybeSingle()
-      .then(({ data }: { data: { name: string } | null }) => setLeagueName(data?.name ?? ''))
+    supabase.from('leagues').select('name, crown_config').eq('id', id).maybeSingle()
+      .then(({ data }: { data: { name: string; crown_config: string[] } | null }) => {
+        setLeagueName(data?.name ?? '')
+        setCrownConfig(data?.crown_config ?? [])
+      })
     const load = async () => {
       const { data, error } = await supabase.rpc('league_crown_details', { p_league: id })
+      console.log('Crown standings:', data)
+      console.log('Crown standings error:', error)
       if (error) return setError(error.message)
       setRows(((data ?? []) as Record<string, unknown>[]).map(clean))
     }
@@ -82,7 +101,7 @@ function CrownView() {
         <div className={s.left}><Link href={`/leagues/${id}`} className={s.back}>← {leagueName || 'League'}</Link></div>
 
         <nav className="tc-cwTabs" aria-label="Crowns">
-          {CROWN_PAGES.map((p) => (
+          {visibleCrownPages.map((p) => (
             <Link key={p.slug} href={`/leagues/${id}/crowns/${p.slug}`}
               className={`tc-cwTab ${p.slug === page.slug ? 'tc-cwTabOn' : ''}`}>{p.nav}</Link>
           ))}
@@ -160,7 +179,9 @@ function CrownView() {
                         <span className="tc-cwChipVal">{m.fmt(r)}</span>
                       </div>
                     ))}
-                    {page.extras?.map((m) => (
+                    {page.extras
+                      ?.filter((m) => !m.crownKey || crownConfig?.includes(m.crownKey))
+                      .map((m) => (
                       <div key={m.label} className="tc-cwChip tc-cwChipExtra">
                         <span className="tc-cwChipLbl">{m.label}</span>
                         <span className="tc-cwChipVal">{m.fmt(r)}</span>

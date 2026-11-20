@@ -14,6 +14,9 @@ type Row = {
   rank_correct: number; rank_weekly: number; rank_upset: number
   tie_correct: boolean; tie_weekly: boolean; tie_upset: boolean
   avg_place: number; rank_overall: number; tie_overall: boolean
+  survival_points: number
+  rank_survival: number
+  tie_survival: boolean
 }
 type WeekRow = {
   week: number; user_id: string; username: string
@@ -26,18 +29,25 @@ type Game = {
   status: string | null; period: number | null; clock: string | null
 }
 
-type CrownKey = 'correct' | 'weekly_wins' | 'upset_points'
+type CrownKey = 'correct' | 'weekly_wins' | 'upset_points' | 'survival'
 
-const CROWNS: { key: CrownKey; name: string; unit: string }[] = [
-  { key: 'correct', name: 'Most Correct', unit: 'correct' },
-  { key: 'weekly_wins', name: 'Weekly Wins', unit: 'weeks won' },
-  { key: 'upset_points', name: 'Upset Points', unit: 'pts' },
+const CROWNS: {
+  key: CrownKey
+  valueKey: 'correct' | 'weekly_wins' | 'upset_points' | 'survival_points'
+  name: string
+  unit: string
+  configKey: string
+}[] = [
+  { key: 'correct', valueKey: 'correct', name: 'Most Correct', unit: 'correct', configKey: 'most_correct' },
+  { key: 'weekly_wins', valueKey: 'weekly_wins', name: 'Weekly Wins', unit: 'weeks won', configKey: 'weekly_wins' },
+  { key: 'upset_points', valueKey: 'upset_points', name: 'Upset Points', unit: 'pts', configKey: 'upset_points' },
+  { key: 'survival', valueKey: 'survival_points', name: 'Survival', unit: 'pts', configKey: 'survival' },
 ]
 
 // "5 correct", "1 win", "466 pts"
 function valueLabel(key: CrownKey, v: number) {
   if (key === 'weekly_wins') return `${v} ${v === 1 ? 'win' : 'wins'}`
-  if (key === 'upset_points') return `${v} pts`
+  if (key === 'upset_points' || key === 'survival') return `${v} pts`
   return `${v} correct`
 }
 
@@ -81,7 +91,7 @@ function toggled(set: Set<number>, n: number) {
   return next
 }
 
-// weekHref (optional): where "Make picks" for the current week should go, e.g. (w) => `/leagues/${id}/picks?week=${w}`
+// weekHref (optional): where "Make picks" for the current week should go, e.g. (w) => /leagues/${id}/picks?week=${w}
 // viewUserId (optional): show another player's page (their stats and their locked picks only)
 export default function RaceForTripleCrown({
   leagueId, weekHref, viewUserId,
@@ -89,6 +99,7 @@ export default function RaceForTripleCrown({
   const viewing = !!viewUserId
   const router = useRouter()
   const [rows, setRows] = useState<Row[] | null>(null)
+  const [crownConfig, setCrownConfig] = useState<string[] | null>(null)
   const [weekRows, setWeekRows] = useState<WeekRow[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [error, setError] = useState('')
@@ -106,6 +117,21 @@ export default function RaceForTripleCrown({
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setMe(user?.id ?? null))
   }, [])
+
+  useEffect(() => {
+      supabase
+        .from('leagues')
+        .select('crown_config')
+        .eq('id', leagueId)
+        .single()
+        .then(({ data, error }) => {
+          if (!error) setCrownConfig(data?.crown_config ?? [])
+        })
+    }, [leagueId])
+
+    const visibleCrowns = CROWNS.filter((crown) =>
+      crownConfig?.includes(crown.configKey)
+    )
 
   const load = useCallback(async () => {
     const [a, b, c] = await Promise.all([
@@ -152,13 +178,24 @@ export default function RaceForTripleCrown({
   if (!rows) return null
 
   // Ranks come from the database, with every tiebreaker already applied.
-  // `tied` is true only when players are level on every tiebreaker (a coin flip settles those at season end).
-  const RANK = { correct: 'rank_correct', weekly_wins: 'rank_weekly', upset_points: 'rank_upset' } as const
-  const TIE = { correct: 'tie_correct', weekly_wins: 'tie_weekly', upset_points: 'tie_upset' } as const
+  // tied is true only when players are level on every tiebreaker (a coin flip settles those at season end).
+  const RANK = {
+  correct: 'rank_correct',
+  weekly_wins: 'rank_weekly',
+  upset_points: 'rank_upset',
+  survival: 'rank_survival',
+} as const
+
+const TIE = {
+  correct: 'tie_correct',
+  weekly_wins: 'tie_weekly',
+  upset_points: 'tie_upset',
+  survival: 'tie_survival',
+} as const
 
   // Crown leaders
-  const leaders = CROWNS.map((c) => {
-    const top = Math.max(0, ...rows.map((r) => r[c.key]))
+  const leaders = visibleCrowns.map((c) => {
+    const top = Math.max(0, ...rows.map((r) => r[c.valueKey]))
     return { ...c, top, who: top > 0 ? rows.filter((r) => r[RANK[c.key]] === 1) : [] }
   })
   const leadsOf = (id: string) => leaders.filter((l) => l.who.some((w) => w.user_id === id)).map((l) => l.key)
@@ -166,7 +203,7 @@ export default function RaceForTripleCrown({
 
   // Places in each crown, and the overall ranking by average placement (lower is better).
   const places = Object.fromEntries(
-    CROWNS.map((c) => [c.key, new Map(rows.map((r) => [r.user_id, { rank: r[RANK[c.key]], tied: r[TIE[c.key]] }]))]),
+    visibleCrowns.map((c) => [c.key, new Map(rows.map((r) => [r.user_id, { rank: r[RANK[c.key]], tied: r[TIE[c.key]] }]))]),
   ) as Record<CrownKey, Map<string, Place>>
   const avgOf = (id: string) => (rows.find((r) => r.user_id === id)?.avg_place ?? 0).toFixed(2)
   const overall = [...rows].sort((a, b) => a.rank_overall - b.rank_overall || a.username.localeCompare(b.username))
@@ -267,7 +304,7 @@ export default function RaceForTripleCrown({
         <>
           <div className="tc-sectionTitle">Triple Crown standing</div>
           <div className="tc-raceTiles">
-            {CROWNS.map((c) => {
+            {visibleCrowns.map((c) => {
               const mine = rows.find((r) => r.user_id === viewUserId)
               const lead = leadsOf(viewUserId!).includes(c.key)
               const place = places[c.key].get(viewUserId!)
@@ -275,9 +312,9 @@ export default function RaceForTripleCrown({
                 <div key={c.key} className={`tc-raceTile ${lead ? 'tc-raceTileLead' : ''}`}>
                   <Crown className="tc-raceCrown" />
                   <div className="tc-raceName">{c.name}</div>
-                  <div className="tc-raceLeader">{mine ? mine[c.key] : 0}</div>
+                  <div className="tc-raceLeader">{mine ? mine[c.valueKey] : 0}</div>
                   <div className="tc-raceStat">
-                    {lead ? `Leading · ${c.unit}` : `${place ? `${placeText(place)} · ` : ''}${c.unit}`}
+                    {lead ? `Leading · ${c.unit}` : `${place ? `${placeText(place)} ·  ` : ''}${c.unit}`}
                   </div>
                 </div>
               )
@@ -331,14 +368,14 @@ export default function RaceForTripleCrown({
             <button className="tc-lbClose" onClick={() => setOpenCrown(null)}>Close</button>
           </div>
           {[...rows]
-            .sort((a, b) => b[openDef.key] - a[openDef.key] || a.username.localeCompare(b.username))
+            .sort((a, b) => b[openDef.valueKey] - a[openDef.valueKey] || a.username.localeCompare(b.username))
             .map((r) => (
               <div key={r.user_id} className={`tc-lbRow ${r.user_id === me ? 'tc-lbMe' : ''}`}>
                 <span className="tc-lbRank">{placeText(places[openDef.key].get(r.user_id)!)}</span>
                 <span className="tc-lbName">
                   {r.username}{r.user_id === me && <span className="tc-youTag">You</span>}
                 </span>
-                <span className="tc-lbVal">{valueLabel(openDef.key, r[openDef.key])}</span>
+                <span className="tc-lbVal">{valueLabel(openDef.key, r[openDef.valueKey])}</span>
               </div>
             ))}
         </div>
@@ -370,7 +407,7 @@ export default function RaceForTripleCrown({
                   <div className={`tc-pdmBlock tc-pdmBlock-${tier} ${r.user_id === me ? 'tc-pdmMe' : ''}`}>
                     <div className="tc-pdmPlace">{placeText(pl)}</div>
                     <div className="tc-pdmAvg">avg {avgOf(r.user_id)}</div>
-                    <div className="tc-pdmSub">{CROWNS.map((c) => placeText(places[c.key].get(r.user_id)!)).join(' · ')}</div>
+                    <div className="tc-pdmSub">{visibleCrowns.map((c) => placeText(places[c.key].get(r.user_id)!)).join(' · ')}</div>
                   </div>
                 </div>
               )
@@ -391,7 +428,7 @@ export default function RaceForTripleCrown({
                   <span className="tc-lbName">
                     {r.username}{r.user_id === me && <span className="tc-youTag">You</span>}
                     <span className="tc-lbSub">
-                      {CROWNS.map((c) => placeText(places[c.key].get(r.user_id)!)).join(' · ')}
+                      {visibleCrowns.map((c) => placeText(places[c.key].get(r.user_id)!)).join(' · ')}
                     </span>
                   </span>
                   <span className="tc-lbVal">avg {avgOf(r.user_id)}</span>
