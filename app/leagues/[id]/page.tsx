@@ -14,6 +14,7 @@ import PickBadge, { usePickStatus } from './PickStatus'
 
 type League = {
   id: string; name: string; join_code: string; owner_id: string; members_can_invite: boolean
+  season_id: number | null; start_week: number | null
 }
 type Member = {
   user_id: string; role: string
@@ -45,6 +46,8 @@ function LeagueView() {
   const [confirming, setConfirming] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [startAt, setStartAt] = useState<number | null>(null)   // first kickoff of the league's first week
+  const [bannerHidden, setBannerHidden] = useState(true)
 
   const tabParam = search.get('tab')
   const tab: TabKey = TABS.some((t) => t.key === tabParam) ? (tabParam as TabKey) : 'overview'
@@ -53,10 +56,24 @@ function LeagueView() {
     if (!userId) return
     const { data: l } = await supabase
       .from('leagues')
-      .select('id, name, join_code, owner_id, members_can_invite')
+      .select('id, name, join_code, owner_id, members_can_invite, season_id, start_week')
       .eq('id', id).maybeSingle()
     if (!l) { setNotFound(true); return }
     setLeague(l)
+
+    // When does competition begin? The first kickoff of the league's first week.
+    setStartAt(null)
+    if (l.season_id != null && l.start_week != null) {
+      const { data: g } = await supabase
+        .from('games').select('kickoff_at')
+        .eq('season_id', l.season_id).eq('week', l.start_week)
+        .order('kickoff_at').limit(1)
+      const ko = g?.[0]?.kickoff_at ? new Date(g[0].kickoff_at).getTime() : null
+      setStartAt(ko)
+      let dismissed = false
+      try { dismissed = localStorage.getItem(`tc-start-banner-${l.id}-${l.start_week}`) === '1' } catch {}
+      setBannerHidden(dismissed)
+    }
 
     const { data: m } = await supabase
       .from('league_members').select('user_id, role, profiles(username, avatar_config)')
@@ -69,6 +86,15 @@ function LeagueView() {
   const me = members.find((m) => m.user_id === userId)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
   const canInvite = isAdmin || !!league?.members_can_invite
+
+  const msToStart = startAt != null ? startAt - Date.now() : null
+  const showStartBanner = tab === 'overview' && !bannerHidden && msToStart != null && msToStart > 0
+  const daysToStart = msToStart != null ? Math.ceil(msToStart / 86400000) : 0
+
+  function dismissBanner() {
+    setBannerHidden(true)
+    try { localStorage.setItem(`tc-start-banner-${id}-${league?.start_week}`, '1') } catch {}
+  }
 
   async function invite(e: React.FormEvent) {
     e.preventDefault()
@@ -152,6 +178,37 @@ function LeagueView() {
             </nav>
 
             {error && <div className={s.error}>{error}</div>}
+
+            {showStartBanner && (
+              <div
+                role="status"
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10, margin: '0 0 16px', padding: '10px 12px',
+                  borderRadius: 10, fontSize: 14,
+                  border: '1px solid rgba(37, 99, 235, 0.35)', background: 'rgba(37, 99, 235, 0.07)',
+                }}
+              >
+                <span style={{ flex: 1 }}>
+                  Competition begins {msToStart! < 86400000 ? 'in less than a day' : `in ${daysToStart} ${daysToStart === 1 ? 'day' : 'days'}`}
+                  {canInvite && (
+                    <>
+                      , <Link href={`/leagues/${id}?tab=settings`} style={{ fontWeight: 700, textDecoration: 'underline', color: 'inherit' }}>
+                        invite your friends
+                      </Link> now!
+                    </>
+                  )}
+                  {!canInvite && '.'}
+                </span>
+                <button
+                  type="button"
+                  onClick={dismissBanner}
+                  aria-label="Dismiss"
+                  style={{ border: 0, background: 'transparent', cursor: 'pointer', fontSize: 18, lineHeight: 1, color: 'inherit', opacity: 0.6 }}
+                >
+                  ×
+                </button>
+              </div>
+            )}
 
             {tab === 'overview' && (
               <RaceForTripleCrown leagueId={id} weekHref={(w) => `/leagues/${id}/weeks/${w}`} />

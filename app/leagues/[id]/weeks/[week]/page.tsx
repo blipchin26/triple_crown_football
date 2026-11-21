@@ -28,6 +28,8 @@ type MyLeague = {
   crown_config: string[] | null
 }
 
+type UsedElsewhere = { team: string; week: number; leagueName: string }
+
 type SurvivalHistory = {
   week: number
   selected_team: string | null
@@ -95,6 +97,8 @@ function WeekView() {
   const [switching, setSwitching] = useState(false)
   const [notMember, setNotMember] = useState(false)
   const [survivalHistory, setSurvivalHistory] = useState<SurvivalHistory[]>([])
+  const [usedElsewhere, setUsedElsewhere] = useState<UsedElsewhere[]>([])
+  const [whyBlocked, setWhyBlocked] = useState(false)
   const [conf, setConf] = useState<Record<number, ConfRow>>({})
   const [confSaving, setConfSaving] = useState(false)
   const [showSurvivalPicker, setShowSurvivalPicker] = useState(false)
@@ -153,6 +157,27 @@ function WeekView() {
     }
 
     setSurvivalHistory(survivalList)
+
+    // With "same Survival picks across leagues" on, a team used up in another league can't be chosen here either.
+    const elsewhere: UsedElsewhere[] = []
+    if (sharedNow && prof.data?.share_survival && selectedLeague?.crown_config?.includes('survival')) {
+      const others = myLeagues.filter(
+        (l) => l.id !== id && l.crown_config?.includes('survival') && (l.start_week ?? 1) <= Number(week)
+      )
+      const results = await Promise.all(
+        others.map((l) => supabase.rpc('league_survival_history', { p_league: l.id, p_user: null }))
+      )
+      results.forEach((res, i) => {
+        if (res.error) return
+        for (const r of (res.data ?? []) as SurvivalHistory[]) {
+          if (r.week === Number(week)) continue
+          for (const team of [r.selected_team, r.eliminated_team]) {
+            if (team) elsewhere.push({ team, week: r.week, leagueName: others[i].name })
+          }
+        }
+      })
+    }
+    setUsedElsewhere(elsewhere)
 
     const confMap: Record<number, ConfRow> = {}
 
@@ -605,6 +630,21 @@ function WeekView() {
                         borderTop: '1px solid rgba(220, 38, 38, 0.25)',
                       }}>
                         Tap a team below to make it this week&apos;s Survival pick. Your regular picks won&apos;t change.
+                        {usedElsewhere.length > 0 && (
+                          <>
+                            {' '}Some teams are greyed out because you used them in another league.{' '}
+                            <button
+                              type="button"
+                              onClick={() => setWhyBlocked(true)}
+                              style={{
+                                border: 0, background: 'transparent', padding: 0, cursor: 'pointer',
+                                color: 'inherit', font: 'inherit', fontWeight: 700, textDecoration: 'underline',
+                              }}
+                            >
+                              Why am I seeing this?
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -760,8 +800,13 @@ function WeekView() {
                                   r.eliminated_team === team)
                             )
 
+                            // used up in ANOTHER league (only when Survival picks are shared across leagues)
+                            const usedOther = used
+                              ? undefined
+                              : usedElsewhere.find((u) => u.team === team)
+
                             const unavailableForSurvival =
-                              !!used && !isSurvivalTeam
+                              (!!used || !!usedOther) && !isSurvivalTeam
 
                             const disabled =
                               locked ||
@@ -777,7 +822,9 @@ function WeekView() {
                                 style={{
                                   position: 'relative',
                                   ...(showSurvivalPicker && unavailableForSurvival
-                                    ? { opacity: 0.45 }
+                                    ? usedOther
+                                      ? { opacity: 0.75, background: 'rgba(128, 128, 128, 0.14)', borderStyle: 'dashed' as const }
+                                      : { opacity: 0.45 }
                                     : {}),
                                   ...(showSurvivalPicker
                                     ? {
@@ -822,6 +869,18 @@ function WeekView() {
                                   </span>
                                 )}
 
+                                {showSurvivalPicker && usedOther && !isSurvivalTeam && (
+                                  <span style={{
+                                    display: 'block',
+                                    marginTop: 5,
+                                    color: '#6b7280',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                  }}>
+                                    Used in Week {usedOther.week} · {usedOther.leagueName}
+                                  </span>
+                                )}
+
                                 <span className={s.sideMeta}>
                                   {p != null
                                     ? `${Math.round(p * 100)}% · +${Math.round(
@@ -853,6 +912,32 @@ function WeekView() {
           </>
         )}
       </div>
+      {whyBlocked && (
+        <div
+          className="tc-modalBack"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setWhyBlocked(false) }}
+        >
+          <div className="tc-modal" role="dialog" aria-modal="true" aria-label="Why some teams are blocked">
+            <div className="tc-modalTitle">Why are some teams blocked?</div>
+            <div className="tc-infoBody">
+              <p>
+                You have &ldquo;Make my Survival picks the same across leagues&rdquo; turned on, so a Survival pick
+                made here is also made in your other leagues that use Survival.
+              </p>
+              <p>
+                A team you&apos;ve already used up in one of those leagues can&apos;t be picked again, so it&apos;s
+                blocked here too, even if it&apos;s still available in this league. The grey label shows which week
+                and league used it.
+              </p>
+              <p>
+                Want to pick separately for each league? Turn that setting off in{' '}
+                <Link href="/settings" className={s.link}>Settings</Link>.
+              </p>
+            </div>
+            <button className="tc-modalCancel" onClick={() => setWhyBlocked(false)}>Got it</button>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
