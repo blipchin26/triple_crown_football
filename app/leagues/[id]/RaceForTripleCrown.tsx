@@ -6,7 +6,7 @@ import Crown from '../../Crown'
 import { CompareHeaderButton, ComparePicker, ComparePicks, CrowdCount, useCompare, useCrowd } from './PickCrowd'
 import { useRouter } from 'next/navigation'
 import InfoTip from '../../InfoTip'
-import { CROWN_SLUG, ULTIMATE_SLUG } from './crowns/config'
+import { CROWN_SLUG, ULTIMATE_SLUG, mergeConfidence, type ConfidenceStanding } from './crowns/config'
 
 type Row = {
   user_id: string; username: string
@@ -17,6 +17,9 @@ type Row = {
   survival_points: number
   rank_survival: number
   tie_survival: boolean
+  conf_points: number
+  rank_confidence: number
+  tie_confidence: boolean
 }
 type WeekRow = {
   week: number; user_id: string; username: string
@@ -29,11 +32,11 @@ type Game = {
   status: string | null; period: number | null; clock: string | null
 }
 
-type CrownKey = 'correct' | 'weekly_wins' | 'upset_points' | 'survival'
+type CrownKey = 'correct' | 'weekly_wins' | 'upset_points' | 'survival' | 'confidence'
 
 const CROWNS: {
   key: CrownKey
-  valueKey: 'correct' | 'weekly_wins' | 'upset_points' | 'survival_points'
+  valueKey: 'correct' | 'weekly_wins' | 'upset_points' | 'survival_points' | 'conf_points'
   name: string
   unit: string
   configKey: string
@@ -42,12 +45,13 @@ const CROWNS: {
   { key: 'weekly_wins', valueKey: 'weekly_wins', name: 'Weekly Wins', unit: 'weeks won', configKey: 'weekly_wins' },
   { key: 'upset_points', valueKey: 'upset_points', name: 'Upset Points', unit: 'pts', configKey: 'upset_points' },
   { key: 'survival', valueKey: 'survival_points', name: 'Survival', unit: 'pts', configKey: 'survival' },
+  { key: 'confidence', valueKey: 'conf_points', name: 'Confidence', unit: 'pts', configKey: 'confidence_points' },
 ]
 
 // "5 correct", "1 win", "466 pts"
 function valueLabel(key: CrownKey, v: number) {
   if (key === 'weekly_wins') return `${v} ${v === 1 ? 'win' : 'wins'}`
-  if (key === 'upset_points' || key === 'survival') return `${v} pts`
+  if (key === 'upset_points' || key === 'survival' || key === 'confidence') return `${v} pts`
   return `${v} correct`
 }
 
@@ -98,7 +102,8 @@ export default function RaceForTripleCrown({
 }: { leagueId: string; weekHref?: (week: number) => string; viewUserId?: string }) {
   const viewing = !!viewUserId
   const router = useRouter()
-  const [rows, setRows] = useState<Row[] | null>(null)
+  const [baseRows, setBaseRows] = useState<Row[] | null>(null)
+  const [conf, setConf] = useState<ConfidenceStanding[]>([])
   const [crownConfig, setCrownConfig] = useState<string[] | null>(null)
   const [weekRows, setWeekRows] = useState<WeekRow[]>([])
   const [games, setGames] = useState<Game[]>([])
@@ -134,15 +139,18 @@ export default function RaceForTripleCrown({
     )
 
   const load = useCallback(async () => {
-    const [a, b, c] = await Promise.all([
+    const [a, b, c, d] = await Promise.all([
       supabase.rpc('league_crown_details', { p_league: leagueId }),
       supabase.rpc('league_week_results', { p_league: leagueId }),
       supabase.rpc('league_member_week_picks', { p_league: leagueId, p_user: viewUserId ?? null }),
+      supabase.rpc('league_confidence_standings', { p_league: leagueId }),
     ])
     const err = a.error ?? b.error ?? c.error
     if (err) { setError(err.message); return }
     setError('')
-    setRows(((a.data ?? []) as Row[]).map((r) => ({ ...r, avg_place: Number(r.avg_place) })))
+    // d fails harmlessly when the league does not use Confidence (or the SQL is not installed yet)
+    setConf(d.error ? [] : ((d.data ?? []) as ConfidenceStanding[]))
+    setBaseRows(((a.data ?? []) as Row[]).map((r) => ({ ...r, avg_place: Number(r.avg_place) })))
     setWeekRows((b.data ?? []) as WeekRow[])
     setGames((c.data ?? []) as Game[])
   }, [leagueId, viewUserId])
@@ -175,7 +183,8 @@ export default function RaceForTripleCrown({
   }, [anyLive, load])
 
   if (error) return <div className="tc-error">{error}</div>
-  if (!rows) return null
+  if (!baseRows) return null
+  const rows = mergeConfidence(baseRows, conf, crownConfig)
 
   // Ranks come from the database, with every tiebreaker already applied.
   // tied is true only when players are level on every tiebreaker (a coin flip settles those at season end).
@@ -184,6 +193,7 @@ export default function RaceForTripleCrown({
   weekly_wins: 'rank_weekly',
   upset_points: 'rank_upset',
   survival: 'rank_survival',
+  confidence: 'rank_confidence',
 } as const
 
 const TIE = {
@@ -191,6 +201,7 @@ const TIE = {
   weekly_wins: 'tie_weekly',
   upset_points: 'tie_upset',
   survival: 'tie_survival',
+  confidence: 'tie_confidence',
 } as const
 
   // Crown leaders
@@ -326,7 +337,7 @@ const TIE = {
       <div className="tc-sectionTitle">
         Race for the Triple Crown
         <InfoTip title="The Triple Crown">
-          <p>Three crowns run all season: <strong>Most Correct</strong>, <strong>Weekly Wins</strong> and <strong>Upset Points</strong>.</p>
+          <p>Three crowns run all season: {visibleCrowns.map((c, i) => (<span key={c.key}>{i > 0 ? (i === visibleCrowns.length - 1 ? ' and ' : ', ') : ''}<strong>{c.name}</strong></span>))}.</p>
           <p>If two players are level, tiebreakers decide it. Tap any crown to see every player and each tiebreaker in order. A game you do not pick counts as a loss.</p>
         </InfoTip>
       </div>
@@ -445,7 +456,7 @@ const TIE = {
             </button>
           )}
           <p className="tc-lbHint">
-            Average of each player&apos;s place in Most Correct, Weekly Wins and Upset Points (shown in that order). Lower is better.
+            Average of each player&apos;s place in {visibleCrowns.map((c) => c.name).join(', ')} (shown in that order). Lower is better.
           </p>
         </>
       ) : (

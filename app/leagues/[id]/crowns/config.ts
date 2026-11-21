@@ -1,4 +1,3 @@
-
 // What each crown page shows, in tiebreak order. Keys match the columns league_crown_details returns.
 
 export type CrownRow = {
@@ -20,6 +19,86 @@ export type CrownRow = {
   survival_recent_correct_at: string | null
   rank_survival: number
   tie_survival: boolean
+  // Confidence Points (filled in by mergeConfidence)
+  conf_points: number
+  conf_best_week: number
+  conf_second_week: number
+  conf_top_hits: number
+  rank_confidence: number
+  tie_confidence: boolean
+}
+
+export type ConfidenceStanding = {
+  user_id: string
+  conf_points: number
+  conf_best_week: number
+  conf_second_week: number
+  conf_top_hits: number
+  rank_confidence: number
+  tie_confidence: boolean
+}
+
+type Overall = { avg_place: number; firsts: number; best_place: number; rank_overall: number; tie_overall: boolean }
+
+// Fills in the Confidence columns and, only for leagues that chose Confidence Points, recomputes the overall
+// placement from the league's three crowns (most_correct, weekly_wins, upset_points, survival, confidence_points).
+// Leagues without Confidence are returned untouched.
+type ConfCols = Pick<CrownRow, 'conf_points' | 'conf_best_week' | 'conf_second_week' | 'conf_top_hits' | 'rank_confidence' | 'tie_confidence'>
+type Rankable = {
+  user_id: string
+  rank_correct: number; rank_weekly: number; rank_upset: number; rank_survival: number
+  avg_place: number; rank_overall: number; tie_overall: boolean
+}
+
+export function mergeConfidence<T extends Rankable>(
+  rows: T[],
+  conf: ConfidenceStanding[],
+  config: string[] | null,
+): (T & ConfCols)[] {
+  const by = new Map(conf.map((c) => [c.user_id, c]))
+  const filled = rows.map((r) => {
+    const c = by.get(r.user_id)
+    return {
+      ...r,
+      conf_points: Number(c?.conf_points ?? 0),
+      conf_best_week: Number(c?.conf_best_week ?? 0),
+      conf_second_week: Number(c?.conf_second_week ?? 0),
+      conf_top_hits: Number(c?.conf_top_hits ?? 0),
+      rank_confidence: Number(c?.rank_confidence ?? rows.length),
+      tie_confidence: Boolean(c?.tie_confidence ?? false),
+    } as T & ConfCols
+  })
+  if (!config?.includes('confidence_points')) return filled
+
+  const ranks: Record<string, (r: T & ConfCols) => number> = {
+    most_correct: (r) => r.rank_correct,
+    weekly_wins: (r) => r.rank_weekly,
+    upset_points: (r) => r.rank_upset,
+    survival: (r) => r.rank_survival,
+    confidence_points: (r) => r.rank_confidence,
+  }
+  const chosen = config.filter((k) => k in ranks)
+  const stats = filled.map((r) => {
+    const rs = chosen.map((k) => ranks[k](r))
+    const o: Overall = {
+      avg_place: rs.length ? Math.round((rs.reduce((a, b) => a + b, 0) / 3) * 1000) / 1000 : 0,
+      firsts: rs.filter((x) => x === 1).length,
+      best_place: rs.length ? Math.min(...rs) : 999,
+      rank_overall: 0,
+      tie_overall: false,
+    }
+    return o
+  })
+  const key = (o: Overall) => `${o.avg_place}|${o.firsts}|${o.best_place}`
+  const better = (a: Overall, b: Overall) =>
+    a.avg_place !== b.avg_place ? a.avg_place < b.avg_place
+      : a.firsts !== b.firsts ? a.firsts > b.firsts
+      : a.best_place < b.best_place
+  stats.forEach((o) => {
+    o.rank_overall = 1 + stats.filter((x) => better(x, o)).length
+    o.tie_overall = stats.filter((x) => key(x) === key(o)).length > 1
+  })
+  return filled.map((r, i) => ({ ...r, ...stats[i] }))
 }
 
 export type Metric = {
@@ -169,6 +248,30 @@ export const CROWN_PAGES: CrownPage[] = [
     lastResort: 'If everything above is equal, a logged coin flip at the end of the season.',
   },
   {
+    slug: 'confidence', nav: 'Confidence', title: 'Confidence Points',
+    blurb: 'Rank your games each week. A correct pick scores the confidence value you gave it.',
+    rankKey: 'rank_confidence', tieKey: 'tie_confidence',
+    main: {
+      label: 'Confidence points', get: (r) => r.conf_points, fmt: (r) => n(r.conf_points),
+      help: 'Each week you give every game a different value from 1 to the number of games. A correct pick earns its value, a wrong or skipped pick earns nothing. Put your biggest numbers on the games you are surest about.',
+    },
+    breakers: [
+      {
+        label: 'Best week', get: (r) => r.conf_best_week, fmt: (r) => n(r.conf_best_week),
+        help: 'Your highest confidence total in a single week. Only weeks where every game is final count.',
+      },
+      {
+        label: '2nd-best week', get: (r) => r.conf_second_week, fmt: (r) => n(r.conf_second_week),
+        help: 'Your second-highest weekly confidence total. Used when best weeks are equal.',
+      },
+      {
+        label: 'Top-3 hits', get: (r) => r.conf_top_hits, fmt: (r) => n(r.conf_top_hits),
+        help: 'Correct picks among the three games you were surest about each week (your three highest numbers). Rewards being right when you were most confident. Used when the weekly totals are equal.',
+      },
+    ],
+    lastResort: 'If everything above is equal, a logged coin flip at the end of the season.',
+  },
+  {
     slug: 'ultimate', nav: 'Ultimate', title: 'Ultimate Winner',
     blurb: 'The overall winner, by average placement across the three crowns selected for this league.',
     rankKey: 'rank_overall', tieKey: 'tie_overall',
@@ -211,6 +314,12 @@ export const CROWN_PAGES: CrownPage[] = [
         fmt: (r) => `${r.tie_survival ? 'T-' : ''}${ord(r.rank_survival)}`,
         help: 'Your place in Survival.',
       },
+      {
+        crownKey: 'confidence_points',
+        label: 'Confidence', low: true, get: (r) => r.rank_confidence,
+        fmt: (r) => `${r.tie_confidence ? 'T-' : ''}${ord(r.rank_confidence)}`,
+        help: 'Your place in Confidence Points.',
+      },
     ],
     lastResort: 'If everything above is equal, a logged coin flip at the end of the season.',
   },
@@ -221,6 +330,7 @@ export const CROWN_SLUG = {
   weekly_wins: 'weekly-wins',
   upset_points: 'upset-points',
   survival: 'survival',
+  confidence: 'confidence',
 } as const
 
 export const ULTIMATE_SLUG = 'ultimate'

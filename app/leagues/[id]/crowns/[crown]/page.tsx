@@ -8,7 +8,7 @@ import { useRequireUser } from '../../../../../lib/useRequireUser'
 import Crown from '../../../../Crown'
 import InfoTip from '../../../../InfoTip'
 import s from '../../../../styles'
-import { CROWN_PAGES, type CrownRow, type Metric } from '../config'
+import { CROWN_PAGES, mergeConfidence, type ConfidenceStanding, type CrownRow, type Metric } from '../config'
 
 const NUM_FIELDS = ['correct', 'total', 'weekly_wins', 'upset_points', 'best_week', 'second_week', 'third_week',
   'longest_streak', 'first_places', 'second_places', 'third_places', 'fourth_places', 'underdog_hits',
@@ -39,6 +39,7 @@ const CROWN_CONFIG_SLUG: Record<string, string> = {
   weekly_wins: 'weekly-wins',
   upset_points: 'upset-points',
   survival: 'survival',
+  confidence_points: 'confidence',
 }
 
 function CrownView() {
@@ -46,7 +47,8 @@ function CrownView() {
   const { id, crown } = useParams<{ id: string; crown: string }>()
   const userId = useRequireUser()
   const page = CROWN_PAGES.find((p) => p.slug === crown) 
-  const [rows, setRows] = useState<CrownRow[] | null>(null)
+  const [rawRows, setRawRows] = useState<CrownRow[] | null>(null)
+  const [conf, setConf] = useState<ConfidenceStanding[]>([])
   const [leagueName, setLeagueName] = useState('')
   const [crownConfig, setCrownConfig] = useState<string[] | null>(null)
 
@@ -65,11 +67,15 @@ function CrownView() {
         setCrownConfig(data?.crown_config ?? [])
       })
     const load = async () => {
-      const { data, error } = await supabase.rpc('league_crown_details', { p_league: id })
-      console.log('Crown standings:', data)
-      console.log('Crown standings error:', error)
-      if (error) return setError(error.message)
-      setRows(((data ?? []) as Record<string, unknown>[]).map(clean))
+      const [a, b] = await Promise.all([
+        supabase.rpc('league_crown_details', { p_league: id }),
+        supabase.rpc('league_confidence_standings', { p_league: id }),
+      ])
+      if (a.error) return setError(a.error.message)
+      setError('')
+      // an error here just means the Confidence SQL is not installed or the league doesn't use it
+      setConf(b.error ? [] : ((b.data ?? []) as ConfidenceStanding[]))
+      setRawRows(((a.data ?? []) as Record<string, unknown>[]).map(clean))
     }
     load()
     const t = setInterval(load, 60_000)            // standings move as games finish
@@ -89,6 +95,7 @@ function CrownView() {
     )
   }
 
+  const rows = rawRows ? mergeConfidence(rawRows, conf, crownConfig) : null
   const rk = (r: CrownRow) => Number(r[page.rankKey])
   const tied = (r: CrownRow) => Boolean(r[page.tieKey])
   const sorted = rows ? [...rows].sort((a, b) => rk(a) - rk(b) || a.username.localeCompare(b.username)) : []

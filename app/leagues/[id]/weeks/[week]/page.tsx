@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
@@ -7,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '../../../../../lib/supabase'
 import { useRequireUser } from '../../../../../lib/useRequireUser'
 import BetPanel, { useBetting } from '../../BetPanel'
+import InfoTip from '../../../../InfoTip'
 import s from '../../../../styles'
 
 type Side = 'away' | 'home'
@@ -38,6 +38,17 @@ type SurvivalHistory = {
   locked_at: string | null
 }
 
+type ConfRow = {
+  game_id: number
+  kickoff_at: string
+  value: number
+  explicit: boolean
+  locked: boolean
+  is_final: boolean
+  correct: boolean
+  points: number
+}
+
 function fmt(iso: string) {
   return new Date(iso).toLocaleString([], {
     weekday: 'short',
@@ -46,6 +57,26 @@ function fmt(iso: string) {
     hour: 'numeric',
     minute: '2-digit',
   })
+}
+
+function StatusPill({ ok, okText, todoText }: { ok: boolean; okText: string; todoText: string }) {
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      padding: '2px 8px',
+      borderRadius: 999,
+      fontSize: 11,
+      fontWeight: 700,
+      whiteSpace: 'nowrap',
+      color: ok ? '#15803d' : '#b45309',
+      background: ok ? 'rgba(21, 128, 61, 0.10)' : 'rgba(217, 119, 6, 0.14)',
+      border: `1px solid ${ok ? 'rgba(21, 128, 61, 0.35)' : 'rgba(217, 119, 6, 0.45)'}`,
+    }}>
+      {ok ? '✓' : '!'} {ok ? okText : todoText}
+    </span>
+  )
 }
 
 function WeekView() {
@@ -62,6 +93,8 @@ function WeekView() {
   const [switching, setSwitching] = useState(false)
   const [notMember, setNotMember] = useState(false)
   const [survivalHistory, setSurvivalHistory] = useState<SurvivalHistory[]>([])
+  const [conf, setConf] = useState<Record<number, ConfRow>>({})
+  const [confSaving, setConfSaving] = useState(false)
   const [showSurvivalPicker, setShowSurvivalPicker] = useState(false)
   const [survivalSaving, setSurvivalSaving] = useState(false)
   const [error, setError] = useState('')
@@ -116,6 +149,23 @@ function WeekView() {
     }
 
     setSurvivalHistory(survivalList)
+
+    const confMap: Record<number, ConfRow> = {}
+
+    if (selectedLeague?.crown_config?.includes('confidence_points')) {
+      const { data, error: confLoadError } = await supabase.rpc('league_confidence_week', {
+        p_league: id,
+        p_week: Number(week),
+      })
+
+      if (confLoadError) {
+        setError(confLoadError.message)
+      } else {
+        for (const r of (data ?? []) as ConfRow[]) confMap[r.game_id] = r
+      }
+    }
+
+    setConf(confMap)
 
     let list: Game[] = []
 
@@ -291,6 +341,110 @@ function WeekView() {
     setSurvivalSaving(false)
   }
 
+  const confidenceEnabled =
+    currentLeague?.crown_config?.includes('confidence_points') ?? false
+
+  const isOpen = (g: Game) => now < new Date(g.kickoff_at).getTime()
+
+  // A number is "taken" if an open game has it set, or a locked game holds it (even automatically).
+  const holderOf = (v: number, exceptId: number) =>
+    games.find((x) => x.id !== exceptId && conf[x.id] && conf[x.id].value === v && (!isOpen(x) || conf[x.id].explicit))
+
+  const confOpenGames = games.filter(isOpen)
+  const confMissing = confOpenGames.filter((g) => !conf[g.id]?.explicit).length
+  const allKicked = games.length > 0 && confOpenGames.length === 0
+
+  const confEarned = games.reduce((sum, g) => sum + (conf[g.id]?.points ?? 0), 0)
+  const confPossible = (games.length * (games.length + 1)) / 2
+
+  async function saveConfidence(next: Record<number, ConfRow>, tagGame: number | null) {
+    const payload: Record<string, number | null> = {}
+    for (const x of games) {
+      if (isOpen(x) && next[x.id]) {
+        payload[String(x.id)] = next[x.id].explicit ? next[x.id].value : null
+      }
+    }
+
+    setError('')
+    setConf(next)
+    setConfSaving(true)
+
+    const started = Date.now()
+
+    const { error: saveError } = await supabase.rpc('save_confidence', {
+      p_league: id,
+      p_week: Number(week),
+      p_values: payload,
+    })
+
+    if (saveError) {
+      setError(saveError.message)
+      await load()
+    } else if (tagGame != null) {
+      setSaveState((prev) => ({ ...prev, [tagGame]: 'saving' }))
+      await new Promise((r) => setTimeout(r, Math.max(0, 400 - (Date.now() - started))))
+      setSaveState((prev) => ({ ...prev, [tagGame]: 'saved' }))
+      window.clearTimeout(saveTimers.current[tagGame])
+      saveTimers.current[tagGame] = window.setTimeout(() => clearSave(tagGame), 2000)
+    }
+
+    setConfSaving(false)
+  }
+
+  // value === null clears the game. Choosing a number another open game already has moves it here
+  // and leaves that game blank.
+  async function changeConfidence(g: Game, value: number | null) {
+    const cur = conf[g.id]
+    if (!cur || confSaving) return
+    if (value === null ? !cur.explicit : cur.explicit && cur.value === value) return
+
+    const next: Record<number, ConfRow> = { ...conf }
+    if (value === null) {
+      next[g.id] = { ...cur, explicit: false }
+    } else {
+      const holder = holderOf(value, g.id)
+      if (holder) next[holder.id] = { ...conf[holder.id], explicit: false }
+      next[g.id] = { ...cur, value, explicit: true }
+    }
+
+    await saveConfidence(next, g.id)
+  }
+
+  // Give every blank open game the lowest numbers that are still free, in kickoff order.
+  async function autofillConfidence() {
+    if (confSaving || confMissing === 0) return
+
+    const taken = new Set<number>()
+    for (const x of games) {
+      if (conf[x.id] && (!isOpen(x) || conf[x.id].explicit)) taken.add(conf[x.id].value)
+    }
+
+    const free: number[] = []
+    for (let v = 1; v <= games.length; v++) if (!taken.has(v)) free.push(v)
+
+    const next: Record<number, ConfRow> = { ...conf }
+    let i = 0
+    for (const x of confOpenGames) {
+      if (!conf[x.id]?.explicit && i < free.length) {
+        next[x.id] = { ...conf[x.id], value: free[i++], explicit: true }
+      }
+    }
+
+    await saveConfidence(next, null)
+  }
+
+    // Blank every open game again (locked games keep their numbers).
+  async function clearAllConfidence() {
+    if (confSaving || !confOpenGames.some((g) => conf[g.id]?.explicit)) return
+
+    const next: Record<number, ConfRow> = { ...conf }
+    for (const x of confOpenGames) {
+      if (next[x.id]?.explicit) next[x.id] = { ...next[x.id], explicit: false }
+    }
+
+    await saveConfidence(next, null)
+  }
+
   async function handleTeamClick(g: Game, side: Side) {
     if (showSurvivalPicker) {
       const team = side === 'away' ? g.away_team : g.home_team
@@ -360,94 +514,154 @@ function WeekView() {
               <p className={s.hint}>No games for this week yet.</p>
             ) : (
               <>
-                {beforeLeagueStart ? (
+                {beforeLeagueStart && (
                   <p className={s.hint}>
                     This league's competition starts in Week {currentLeague?.start_week}.
                     Earlier picks are visible for reference but cannot be changed or counted
                     toward this league.
                   </p>
-                ) : (
-                  <p className={s.progress}>
-                    {pickedCount} of {games.length} picked. Unpicked games count as a loss.
-                  </p>
                 )}
 
-                {survivalEnabled && !beforeLeagueStart && (
+                {(survivalEnabled || confidenceEnabled) && !beforeLeagueStart && (
                   <div style={{
                     maxWidth: 520,
                     width: '100%',
-                    margin: '0 auto 16px',
-                    padding: 12,
+                    margin: '0 auto 12px',
+                    border: '1px solid rgba(128, 128, 128, 0.3)',
                     borderRadius: 10,
-                    border: '1px solid rgba(220, 38, 38, 0.35)',
-                    background: showSurvivalPicker
-                      ? 'rgba(220, 38, 38, 0.07)'
-                      : 'transparent',
+                    overflow: 'hidden',
                   }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: 10,
-                    }}>
-                      <div>
-                        <strong>Survival Pick</strong>
-                        <p className={s.hint} style={{ margin: '4px 0 0' }}>
-                          {survivalLocked
-                            ? `${selectedSurvivalTeam ?? 'Selection'} is locked for this week.`
-                            : selectedSurvivalTeam
-                              ? `Current selection: ${selectedSurvivalTeam}`
-                              : 'Choose one team from this week’s games.'}
-                        </p>
-                      </div>
+                    {survivalEnabled && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                        padding: '8px 12px',
+                        background: showSurvivalPicker ? 'rgba(220, 38, 38, 0.07)' : 'transparent',
+                      }}>
+                        <strong style={{ fontSize: 13 }}>Survival</strong>
+                        <span style={{ fontSize: 13, flex: 1, minWidth: 80 }}>
+                          {selectedSurvivalTeam
+                            ? <>{selectedSurvivalTeam}{survivalLocked ? ' (locked)' : ''}</>
+                            : <span style={{ opacity: 0.65 }}>No team chosen</span>}
+                          {mySurvivalPick && mySurvivalPick.result !== 'pending' && (
+                            <span style={{ opacity: 0.65 }}>
+                              {' '}· {mySurvivalPick.result} · {mySurvivalPick.points ?? 0} pts
+                            </span>
+                          )}
+                        </span>
 
-                      {!survivalLocked && (
-                        <div style={{
-                          display: 'flex',
-                          gap: 8,
-                          flexWrap: 'wrap',
-                        }}>
-                          <button
-                            type="button"
-                            className={s.side}
-                            disabled={survivalSaving}
-                            onClick={() => setShowSurvivalPicker((v) => !v)}
-                          >
-                            {showSurvivalPicker
-                              ? 'Cancel'
-                              : selectedSurvivalTeam
-                                ? 'Change Survival Pick'
-                                : 'Make Survival Pick'}
-                          </button>
-
-                          {selectedSurvivalTeam && (
+                        {!survivalLocked && (
+                          <>
                             <button
                               type="button"
                               className={s.side}
+                              style={{ padding: '3px 10px', fontSize: 12, minHeight: 0, width: 'auto' }}
                               disabled={survivalSaving}
-                              onClick={clearSurvivalPick}
+                              onClick={() => setShowSurvivalPicker((v) => !v)}
                             >
-                              Clear
+                              {showSurvivalPicker ? 'Cancel' : selectedSurvivalTeam ? 'Change' : 'Choose'}
                             </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {showSurvivalPicker && (
-                      <p className={s.hint} style={{ marginBottom: 0, marginTop: 10 }}>
-                        Select a team using its game button below. Your regular picks will
-                        not be changed.
-                      </p>
+                            {selectedSurvivalTeam && !showSurvivalPicker && (
+                              <button
+                                type="button"
+                                className={s.side}
+                                style={{ padding: '3px 10px', fontSize: 12, minHeight: 0, width: 'auto' }}
+                                disabled={survivalSaving}
+                                onClick={clearSurvivalPick}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </>
+                        )}
+                          <InfoTip title="Survival">
+                          <p>
+                            Choose one team each week. A correct pick earns 1 point and a wrong pick
+                            loses 1 point.
+                          </p>
+                          <p>
+                            Whether it wins or loses, that team is used up for the rest of the season
+                            and can&apos;t be your Survival pick again. Teams you&apos;ve already used
+                            are greyed out below.
+                          </p>
+                        </InfoTip>
+                        <StatusPill ok={!!selectedSurvivalTeam || allKicked} okText={selectedSurvivalTeam ? 'Set' : 'Auto'} todoText="Needed" />
+                      </div>
                     )}
 
-                    {mySurvivalPick && mySurvivalPick.result !== 'pending' && (
-                      <p className={s.hint} style={{ marginBottom: 0, marginTop: 8 }}>
-                        Result: {mySurvivalPick.result} · {mySurvivalPick.points ?? 0} points
-                      </p>
+                    {survivalEnabled && showSurvivalPicker && (
+                      <div style={{
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        background: 'rgba(220, 38, 38, 0.07)',
+                        borderTop: '1px solid rgba(220, 38, 38, 0.25)',
+                      }}>
+                        Tap a team below to make it this week&apos;s Survival pick. Your regular picks won&apos;t change.
+                      </div>
+                    )}
+
+                    {confidenceEnabled && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                        padding: '8px 12px',
+                        borderTop: survivalEnabled ? '1px solid rgba(128, 128, 128, 0.25)' : 'none',
+                      }}>
+                        <strong style={{ fontSize: 13 }}>Confidence</strong>
+                        <span style={{ fontSize: 13, flex: 1, minWidth: 80, opacity: 0.8 }}>
+                          {allKicked ? 'All games locked' : `${confOpenGames.length - confMissing} of ${confOpenGames.length} numbered`} · {confEarned}/{confPossible} pts
+                        </span>
+                        {confMissing > 0 && !allKicked && (
+                          <button
+                            type="button"
+                            className={s.side}
+                            style={{ padding: '3px 10px', fontSize: 12, minHeight: 0, width: 'auto' }}
+                            disabled={confSaving}
+                            onClick={autofillConfidence}
+                          >
+                            Auto-fill
+                          </button>
+                        )}
+                         {!allKicked && confOpenGames.some((g) => conf[g.id]?.explicit) && (
+                          <button
+                            type="button"
+                            className={s.side}
+                            style={{ padding: '3px 10px', fontSize: 12, minHeight: 0, width: 'auto' }}
+                            disabled={confSaving}
+                            onClick={clearAllConfidence}
+                          >
+                            Clear all
+                          </button>
+                        )}
+                        <InfoTip title="Confidence Points">
+                          <p>
+                            Give every game a different number from 1 to {games.length} using the
+                            Conf menu on each game. Numbers already used show as &ldquo;used&rdquo;;
+                            picking one moves it to this game. Auto-fill numbers the blank games for you.
+                            A correct pick scores its number; a wrong or missed pick scores nothing.
+                          </p>
+                          <p>
+                            A game&apos;s number locks at its kickoff and the rest can still be
+                            changed. A game still blank at kickoff gets the lowest leftover number.
+                          </p>
+                        </InfoTip>
+                        <StatusPill ok={confMissing === 0 || allKicked} okText={confMissing === 0 ? 'Set' : 'Auto'} todoText="Needed" />
+                      </div>
                     )}
                   </div>
+                )}
+
+                {!beforeLeagueStart && (
+                  <p
+                    className={s.progress}
+                    style={pickedCount < games.length ? { color: '#b45309', fontWeight: 600 } : undefined}
+                  >
+                    {pickedCount} of {games.length} picked. Unpicked games count as a loss.
+                  </p>
                 )}
 
                 <div className={`${s.list} ${showSurvivalPicker ? 'survivalPicking' : ''}`}>
@@ -458,7 +672,7 @@ function WeekView() {
 
                     return (
                       <div key={g.id} className={s.game}>
-                        <div className={s.gameTime}>
+                        <div className={s.gameTime} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span>{fmt(g.kickoff_at)}</span>
 
                           {saveState[g.id] === 'saving' && (
@@ -474,6 +688,55 @@ function WeekView() {
                           )}
 
                           {locked && <span className={s.lockTag}>Locked</span>}
+
+                          {confidenceEnabled && !beforeLeagueStart && conf[g.id] && (
+                            <span
+                              title="Confidence points: a correct pick scores this number"
+                              style={{
+                                marginLeft: 'auto',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                fontSize: 11,
+                                fontWeight: 600,
+                                lineHeight: 1,
+                              }}
+                            >
+                              {conf[g.id].is_final ? (
+                                <span>{conf[g.id].correct ? `+${conf[g.id].points}` : '+0'}</span>
+                              ) : locked && !conf[g.id].explicit ? (
+                                <span style={{ opacity: 0.6 }}>auto</span>
+                              ) : null}
+                              <span>Conf</span>
+                              <select
+                                className={s.select}
+                                style={{
+                                  width: 'auto',
+                                  minWidth: 0,
+                                  height: 22,
+                                  padding: '0 18px 0 6px',
+                                  margin: 0,
+                                  fontSize: 12,
+                                  borderRadius: 6,
+                                }}
+                                value={locked || conf[g.id].explicit ? conf[g.id].value : ''}
+                                disabled={locked || confSaving}
+                                onChange={(e) =>
+                                  changeConfidence(g, e.target.value === '' ? null : Number(e.target.value))
+                                }
+                              >
+                                {!locked && <option value="">–</option>}
+                                {Array.from({ length: games.length }, (_, i) => i + 1).map((v) => {
+                                  const holder = holderOf(v, g.id)
+                                  return (
+                                    <option key={v} value={v}>
+                                      {v}{holder ? (isOpen(holder) ? ' · used' : ' · locked') : ''}
+                                    </option>
+                                  )
+                                })}
+                              </select>
+                            </span>
+                          )}
                         </div>
 
                         <div className={s.sides}>
