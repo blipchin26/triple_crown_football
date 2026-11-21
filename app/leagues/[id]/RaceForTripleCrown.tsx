@@ -32,6 +32,9 @@ type Game = {
   status: string | null; period: number | null; clock: string | null
 }
 
+type ConfPick = { week: number; game_id: number; value: number; correct: boolean; points: number }
+type SurvPick = { week: number; selected_team: string | null }
+
 type CrownKey = 'correct' | 'weekly_wins' | 'upset_points' | 'survival' | 'confidence'
 
 const CROWNS: {
@@ -104,6 +107,8 @@ export default function RaceForTripleCrown({
   const router = useRouter()
   const [baseRows, setBaseRows] = useState<Row[] | null>(null)
   const [conf, setConf] = useState<ConfidenceStanding[]>([])
+  const [confPicks, setConfPicks] = useState<Map<number, ConfPick>>(new Map())
+  const [survPicks, setSurvPicks] = useState<Map<number, string>>(new Map())
   const [crownConfig, setCrownConfig] = useState<string[] | null>(null)
   const [weekRows, setWeekRows] = useState<WeekRow[]>([])
   const [games, setGames] = useState<Game[]>([])
@@ -139,17 +144,24 @@ export default function RaceForTripleCrown({
     )
 
   const load = useCallback(async () => {
-    const [a, b, c, d] = await Promise.all([
+    const [a, b, c, d, e, f] = await Promise.all([
       supabase.rpc('league_crown_details', { p_league: leagueId }),
       supabase.rpc('league_week_results', { p_league: leagueId }),
       supabase.rpc('league_member_week_picks', { p_league: leagueId, p_user: viewUserId ?? null }),
       supabase.rpc('league_confidence_standings', { p_league: leagueId }),
+      supabase.rpc('league_member_confidence', { p_league: leagueId, p_user: viewUserId ?? null }),
+      supabase.rpc('league_survival_history', { p_league: leagueId, p_user: viewUserId ?? null }),
     ])
     const err = a.error ?? b.error ?? c.error
     if (err) { setError(err.message); return }
     setError('')
     // d fails harmlessly when the league does not use Confidence (or the SQL is not installed yet)
     setConf(d.error ? [] : ((d.data ?? []) as ConfidenceStanding[]))
+    // e and f fail harmlessly when the league does not use those crowns
+    setConfPicks(new Map(e.error ? [] : ((e.data ?? []) as ConfPick[]).map((x) => [x.game_id, x])))
+    setSurvPicks(new Map(f.error ? [] : ((f.data ?? []) as SurvPick[])
+      .filter((x) => x.selected_team)
+      .map((x) => [x.week, x.selected_team as string])))
     setBaseRows(((a.data ?? []) as Row[]).map((r) => ({ ...r, avg_place: Number(r.avg_place) })))
     setWeekRows((b.data ?? []) as WeekRow[])
     setGames((c.data ?? []) as Game[])
@@ -276,6 +288,16 @@ const TIE = {
                     {g.pick_side === side && (
                       <span className="tc-gmTag">
                         {viewing && me && viewUserId !== me ? 'Their pick' : 'Your pick'}
+                      </span>
+                    )}
+                    {g.pick_side === side && confPicks.has(g.game_id) && (
+                      <span className="tc-gmTag" title="Confidence points" style={{ color: '#2563eb' }}>
+                        Conf {confPicks.get(g.game_id)!.value}
+                      </span>
+                    )}
+                    {isDone(g.week) && survPicks.get(g.week) === (side === 'home' ? g.home_team : g.away_team) && (
+                      <span className="tc-gmTag" title="Survival pick" style={{ color: '#dc2626' }}>
+                        ★ Survival
                       </span>
                     )}
                      {!viewing && g.locked && <CrowdCount names={crowd.get(`${g.game_id}:${side}`)} />}

@@ -14,6 +14,7 @@ import s from '../styles'
 type Profile = {
   username: string; avatar_config: Record<string, unknown> | null
   bio: string | null; favorite_team: string | null; share_picks: boolean
+  share_confidence: boolean; share_survival: boolean; show_week_summary: boolean
   time_zone: string | null; theme: 'system' | 'light' | 'dark'; remind_picks: boolean
   landing: 'last' | 'list'; username_changed_at: string | null
 }
@@ -44,7 +45,7 @@ export default function SettingsPage() {
     if (!userId) return
     supabase.auth.getUser().then(({ data: { user } }) => setEmail(user?.email ?? ''))
     supabase.from('profiles')
-      .select('username, avatar_config, bio, favorite_team, share_picks, time_zone, theme, remind_picks, landing, username_changed_at')
+      .select('username, avatar_config, bio, favorite_team, share_picks, share_confidence, share_survival, show_week_summary, time_zone, theme, remind_picks, landing, username_changed_at')
       .eq('id', userId).single()
       .then(({ data }: { data: Profile | null }) => {
         if (!data) return
@@ -208,6 +209,33 @@ export default function SettingsPage() {
                 </div>
               </div>
             </label>
+            <div style={{ marginLeft: 28 }}>
+              <label className={s.check} style={{ opacity: p.share_picks ? 1 : 0.5 }}>
+                <input type="checkbox" disabled={!p.share_picks}
+                  checked={p.share_picks && p.share_confidence}
+                  onChange={(e) => patch('picks', { share_confidence: e.target.checked })} />
+                <div>
+                  <div className={s.checkTitle}>Make my Confidence picks the same across leagues</div>
+                  <div className={s.checkSub}>
+                    Your confidence numbers are copied to every league that uses Confidence Points.
+                    {!p.share_picks && ' Turn on consistent picks above to use this.'}
+                  </div>
+                </div>
+              </label>
+              <label className={s.check} style={{ opacity: p.share_picks ? 1 : 0.5 }}>
+                <input type="checkbox" disabled={!p.share_picks}
+                  checked={p.share_picks && p.share_survival}
+                  onChange={(e) => patch('picks', { share_survival: e.target.checked })} />
+                <div>
+                  <div className={s.checkTitle}>Make my Survival picks the same across leagues</div>
+                  <div className={s.checkSub}>
+                    Your Survival team is chosen in every league that uses Survival at once. If a team is
+                    already used up in one of them, nothing is changed and you&apos;ll be told which league.
+                    {!p.share_picks && ' Turn on consistent picks above to use this.'}
+                  </div>
+                </div>
+              </label>
+            </div>
             <Msg section="picks" />
 
             {/* ---------- Preferences ---------- */}
@@ -218,6 +246,17 @@ export default function SettingsPage() {
               <div>
                 <div className={s.checkTitle}>Remind me about unpicked games</div>
                 <div className={s.checkSub}>Shows a banner when a game kicks off within 24 hours and you haven&apos;t picked it.</div>
+              </div>
+            </label>
+            <label className={s.check}>
+              <input type="checkbox" checked={p.show_week_summary}
+                onChange={(e) => patch('prefs', { show_week_summary: e.target.checked })} />
+              <div>
+                <div className={s.checkTitle}>Show the weekly summary when I open a league</div>
+                <div className={s.checkSub}>
+                  After each week is paid, a popup shows the tokens you earned and your league&apos;s standings.
+                  You can always open it later with the &ldquo;Last week summary&rdquo; button.
+                </div>
               </div>
             </label>
             <div className={s.field}>

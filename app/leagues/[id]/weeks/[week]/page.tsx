@@ -86,6 +86,8 @@ function WeekView() {
 
   const [leagues, setLeagues] = useState<MyLeague[]>([])
   const [shared, setShared] = useState(false)
+  const [shareConf, setShareConf] = useState(false)
+  const [shareSurv, setShareSurv] = useState(false)
   const [games, setGames] = useState<Game[]>([])
   const [picks, setPicks] = useState<Record<number, Side>>({})
   const [initialized, setInitialized] = useState(false)
@@ -116,7 +118,7 @@ function WeekView() {
     setError('')
 
     const [prof, mem] = await Promise.all([
-      supabase.from('profiles').select('share_picks').eq('id', userId).single(),
+      supabase.from('profiles').select('share_picks, share_confidence, share_survival').eq('id', userId).single(),
       supabase.from('league_members')
         .select('leagues(id, name, season_id, start_week, crown_config)')
         .eq('user_id', userId),
@@ -128,6 +130,8 @@ function WeekView() {
       .filter((l): l is MyLeague => !!l)
 
     setShared(sharedNow)
+    setShareConf(sharedNow && !!prof.data?.share_confidence)
+    setShareSurv(sharedNow && !!prof.data?.share_survival)
     setLeagues(myLeagues)
     setNotMember(!myLeagues.some((l) => l.id === id))
 
@@ -305,7 +309,7 @@ function WeekView() {
     setError('')
     setSurvivalSaving(true)
 
-    const { error } = await supabase.rpc('select_survival_team', {
+    const { error } = await supabase.rpc('select_survival_team_everywhere', {
       p_league: id,
       p_week: survivalWeek,
       p_team: team,
@@ -327,7 +331,7 @@ function WeekView() {
     setError('')
     setSurvivalSaving(true)
 
-    const { error } = await supabase.rpc('clear_survival_team', {
+    const { error } = await supabase.rpc('clear_survival_team_everywhere', {
       p_league: id,
       p_week: survivalWeek,
     })
@@ -371,7 +375,7 @@ function WeekView() {
 
     const started = Date.now()
 
-    const { error: saveError } = await supabase.rpc('save_confidence', {
+    const { error: saveError } = await supabase.rpc('save_confidence_everywhere', {
       p_league: id,
       p_week: Number(week),
       p_values: payload,
@@ -433,7 +437,7 @@ function WeekView() {
     await saveConfidence(next, null)
   }
 
-    // Blank every open game again (locked games keep their numbers).
+  // Blank every open game again (locked games keep their numbers).
   async function clearAllConfidence() {
     if (confSaving || !confOpenGames.some((g) => conf[g.id]?.explicit)) return
 
@@ -576,7 +580,8 @@ function WeekView() {
                             )}
                           </>
                         )}
-                          <InfoTip title="Survival">
+
+                        <InfoTip title="Survival">
                           <p>
                             Choose one team each week. A correct pick earns 1 point and a wrong pick
                             loses 1 point.
@@ -586,6 +591,7 @@ function WeekView() {
                             and can&apos;t be your Survival pick again. Teams you&apos;ve already used
                             are greyed out below.
                           </p>
+                          {shareSurv && <p>Your Survival pick is applied to all your leagues that use Survival.</p>}
                         </InfoTip>
                         <StatusPill ok={!!selectedSurvivalTeam || allKicked} okText={selectedSurvivalTeam ? 'Set' : 'Auto'} todoText="Needed" />
                       </div>
@@ -626,7 +632,7 @@ function WeekView() {
                             Auto-fill
                           </button>
                         )}
-                         {!allKicked && confOpenGames.some((g) => conf[g.id]?.explicit) && (
+                        {!allKicked && confOpenGames.some((g) => conf[g.id]?.explicit) && (
                           <button
                             type="button"
                             className={s.side}
@@ -648,6 +654,7 @@ function WeekView() {
                             A game&apos;s number locks at its kickoff and the rest can still be
                             changed. A game still blank at kickoff gets the lowest leftover number.
                           </p>
+                          {shareConf && <p>Your numbers are applied to all your leagues that use Confidence Points.</p>}
                         </InfoTip>
                         <StatusPill ok={confMissing === 0 || allKicked} okText={confMissing === 0 ? 'Set' : 'Auto'} todoText="Needed" />
                       </div>

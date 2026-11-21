@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -9,6 +8,7 @@ import { useRequireUser } from '../../lib/useRequireUser'
 import Crown from '../Crown'
 import s from '../styles'
 import { usePageTitle } from '../../lib/usePageTitle'
+import { WeekSummaryButton } from './WeekSummary'
 
 type MyLeague = { id: string; name: string; role: string }
 type Invite = { invite_id: string; league_id: string; league_name: string; invited_by_name: string }
@@ -108,6 +108,10 @@ export default function LeaguesPage() {
   return (
     <main className={s.page}>
       <div className={`${s.card} ${s.cardWide}`}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <WeekSummaryButton />
+        </div>
+
         <div className={s.brand}>
           <Crown className={s.crown} />
           <div className={s.brandName}>Your leagues</div>
